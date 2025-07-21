@@ -1,0 +1,89 @@
+[project]
+name = "openbook-backend"
+version = "1.0.0"
+description = "OpenBook 显卡资源预约与管理系统后端API"
+authors = ["OpenBook Team"]
+channels = ["conda-forge"]
+platforms = ["linux-64", "osx-64", "osx-arm64", "win-64"]
+
+[dependencies]
+python = ">=3.8,<3.12"
+fastapi = ">=0.104.0"
+uvicorn = ">=0.24.0" # extras [standard] 移动至 pypi-dependencies
+pydantic = ">=2.5.0"
+# python-jose 和 passlib 移至 pypi-dependencies 以正确处理 extras
+python-multipart = ">=0.0.6"
+sqlalchemy = ">=2.0.23"
+python-dotenv = ">=1.0.0"
+
+[pypi-dependencies]
+# extras 语法是针对 PyPI 包的，将它们移到这里是正确的做法
+python-jose = { version = ">=3.3.0", extras = ["cryptography"] }
+passlib = { version = ">=1.7.4", extras = ["bcrypt"] }
+authlib = ">=1.2.1"
+httpx = ">=0.25.2"
+itsdangerous = ">=2.1.2"
+
+[tasks]
+# 启动开发服务器
+dev = "uvicorn main:app --reload --host 0.0.0.0 --port 8000"
+
+# 启动生产服务器
+start = "uvicorn main:app --host 0.0.0.0 --port 8000"
+
+# 运行主应用 (假设 run.py 调用 uvicorn)
+run = "python run.py"
+
+# 数据库初始化
+init-db = "python -c 'from database import create_tables, init_db; create_tables(); init_db(); print(\"数据库初始化完成\")'"
+
+# API文档说明任务 (此任务仅为提供信息)
+# FastAPI 会在服务运行时自动在 /docs 路径生成并提供交互式API文档。
+docs = "echo '服务启动后，请访问 http://127.0.0.1:8000/docs 查看API文档'"
+
+# 为了方便，将常用的代码质量任务放在根任务区
+lint = "flake8 ."
+format = "black ."
+test = "pytest"
+
+# ---------------- 开发环境专属配置 ----------------
+
+[feature.dev.dependencies]
+# 开发环境依赖
+pytest = ">=7.0.0"
+pytest-cov = ">=4.0.0"
+black = ">=23.0.0"
+flake8 = ">=6.0.0"
+mypy = ">=1.0.0"
+bandit = ">=1.7.0"
+httpx = ">=0.25.0"  # 用于测试和健康检查的HTTP客户端
+
+[feature.dev.tasks]
+# 类型检查
+typecheck = "mypy ."
+
+# 安全检查
+security = "bandit -r ."
+
+# 测试覆盖率
+test-cov = "pytest --cov=. --cov-report=html"
+
+# 健康检查 (使用已在dev依赖中的httpx)
+health = "python -c 'import httpx; print(httpx.get(\"http://localhost:8000/api/health\").json())'"
+
+# 组合任务：运行所有代码质量检查
+check-all = { depends_on = ["lint", "typecheck", "security"] }
+
+# 组合任务：格式化并检查
+format-check = { depends_on = ["format", "lint"] }
+
+# 组合任务：运行所有测试
+test-all = { depends_on = ["test", "test-cov"] }
+
+
+[environments]
+# 开发环境（默认）: 包含基础依赖和dev特性依赖
+dev = { features = ["dev"], solve-group = "default" }
+
+# 生产环境: 仅包含基础依赖
+prod = { solve-group = "production" }

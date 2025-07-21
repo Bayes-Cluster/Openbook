@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OpenBook - 显卡资源预约系统</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+<body>
+    <!-- 登录页面 -->
+    <div id="loginPage" class="page active">
+        <div class="login-container">
+            <div class="login-header">
+                <h1><i class="fas fa-microchip"></i> OpenBook</h1>
+                <p>显卡资源预约与管理系统</p>
+            </div>
+            <div class="login-content">
+                <h2>欢迎使用 OpenBook</h2>
+                <p>请通过 OAuth 登录来访问资源预约功能</p>
+                <input type="email" id="userEmail" placeholder="请输入您的邮箱" class="email-input" value="zhangsan@example.com">
+                <button id="oauthLogin" class="oauth-btn">
+                    <i class="fab fa-google"></i>
+                    通过 OAuth 登录
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 主界面 -->
+    <div id="mainPage" class="page">
+        <header class="header">
+            <div class="header-left">
+                <h1><i class="fas fa-microchip"></i> OpenBook</h1>
+            </div>
+            <div class="header-right">
+                <span id="userName">用户名</span>
+                <button id="logoutBtn" class="logout-btn">
+                    <i class="fas fa-sign-out-alt"></i> 退出登录
+                </button>
+            </div>
+        </header>
+
+        <main class="main-content">
+            <div class="dashboard">
+                <div class="dashboard-section">
+                    <h2><i class="fas fa-calendar-alt"></i> 预约管理</h2>
+                    <p>在可视化日历界面上轻松预约、管理和调整显卡资源使用时间</p>
+                    <button id="goToBooking" class="primary-btn">
+                        <i class="fas fa-plus"></i> 去预约
+                    </button>
+                </div>
+                
+                <div class="dashboard-section">
+                    <h2><i class="fas fa-list"></i> 我的预约</h2>
+                    <div id="myBookings" class="booking-list">
+                        <!-- 用户预约列表将在这里显示 -->
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- 预约页面 -->
+    <div id="bookingPage" class="page">
+        <header class="header">
+            <div class="header-left">
+                <button id="backToMain" class="back-btn">
+                    <i class="fas fa-arrow-left"></i> 返回主页
+                </button>
+                <h1>资源预约日历</h1>
+            </div>
+            <div class="header-right">
+                <span id="userNameBooking">用户名</span>
+                <button id="logoutBtnBooking" class="logout-btn">
+                    <i class="fas fa-sign-out-alt"></i> 退出登录
+                </button>
+            </div>
+        </header>
+
+        <main class="booking-content">
+            <div class="calendar-controls">
+                <button id="prevWeek" class="control-btn">
+                    <i class="fas fa-chevron-left"></i> 上周
+                </button>
+                <h3 id="currentWeek">当前周</h3>
+                <button id="nextWeek" class="control-btn">
+                    <i class="fas fa-chevron-right"></i> 下周
+                </button>
+            </div>
+
+            <div class="resources-legend">
+                <h4>显卡资源：</h4>
+                <div class="legend-items">
+                    <div class="legend-item">
+                        <div class="legend-color available"></div>
+                        <span>可用</span>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-color booked"></div>
+                        <span>已预约</span>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-color in-use"></div>
+                        <span>使用中</span>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-color my-booking"></div>
+                        <span>我的预约</span>
+                    </div>
+                </div>
+            </div>
+
+            <div id="calendar" class="calendar">
+                <!-- 日历将在这里动态生成 -->
+            </div>
+        </main>
+    </div>
+
+    <!-- 预约确认弹窗 -->
+    <div id="bookingModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3><i class="fas fa-calendar-plus"></i> 确认预约</h3>
+                <button id="closeModal" class="close-btn">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="booking-info">
+                    <div class="info-item">
+                        <label>显卡资源：</label>
+                        <span id="modalResource">GPU-01</span>
+                    </div>
+                    <div class="info-item">
+                        <label>开始时间：</label>
+                        <span id="modalStartTime">2024-01-01 09:00</span>
+                    </div>
+                    <div class="info-item">
+                        <label>结束时间：</label>
+                        <span id="modalEndTime">2024-01-01 12:00</span>
+                    </div>
+                    <div class="info-item">
+                        <label>时长：</label>
+                        <span id="modalDuration">3 小时</span>
+                    </div>
+                </div>
+                <div class="task-input">
+                    <label for="taskName">任务名称：</label>
+                    <input type="text" id="taskName" placeholder="请输入任务名称" required>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button id="cancelBooking" class="secondary-btn">取消</button>
+                <button id="confirmBooking" class="primary-btn">
+                    <i class="fas fa-check"></i> 提交预约
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 预约管理弹窗 -->
+    <div id="manageModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3><i class="fas fa-cog"></i> 管理预约</h3>
+                <button id="closeManageModal" class="close-btn">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="booking-info">
+                    <div class="info-item">
+                        <label>任务名称：</label>
+                        <span id="manageTaskName">任务名称</span>
+                    </div>
+                    <div class="info-item">
+                        <label>显卡资源：</label>
+                        <span id="manageResource">GPU-01</span>
+                    </div>
+                    <div class="info-item">
+                        <label>开始时间：</label>
+                        <span id="manageStartTime">2024-01-01 09:00</span>
+                    </div>
+                    <div class="info-item">
+                        <label>结束时间：</label>
+                        <span id="manageEndTime">2024-01-01 12:00</span>
+                    </div>
+                    <div class="info-item">
+                        <label>状态：</label>
+                        <span id="manageStatus">未开始</span>
+                    </div>
+                </div>
+                <div id="manageActions" class="manage-actions">
+                    <!-- 管理按钮将根据预约状态动态生成 -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 延长预约弹窗 -->
+    <div id="extendModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3><i class="fas fa-clock"></i> 延长预约</h3>
+                <button id="closeExtendModal" class="close-btn">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <p>请选择延长时长：</p>
+                <div id="extendOptions" class="extend-options">
+                    <!-- 延长选项将动态生成 -->
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button id="cancelExtend" class="secondary-btn">取消</button>
+                <button id="confirmExtend" class="primary-btn">
+                    <i class="fas fa-check"></i> 确认延长
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script src="api.js"></script>
+    <script src="script-integrated.js"></script>
+</body>
+</html>
