@@ -16,6 +16,8 @@ services:
       - PORT=8000
       - NEXT_PUBLIC_API_URL=/api
       - DEBUG=False
+      - FRONTEND_URL=${FRONTEND_URL:-http://localhost}
+      - OAUTH_REDIRECT_URI=${FRONTEND_URL:-http://localhost}/api/auth/oauth/callback
     volumes:
       - ./data:/app/data
     restart: unless-stopped

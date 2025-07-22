@@ -13,9 +13,9 @@ services:
       - ENVIRONMENT=production
       - HOST=127.0.0.1
       - PORT=8000
-      - NEXT_PUBLIC_API_URL=http://localhost/api
-      - OAUTH_REDIRECT_URI=http://localhost/api/auth/oauth/callback
-      - FRONTEND_URL=http://localhost
+      - NEXT_PUBLIC_API_URL=/api
+      - OAUTH_REDIRECT_URI=${FRONTEND_URL:-http://localhost}/api/auth/oauth/callback
+      - FRONTEND_URL=${FRONTEND_URL:-http://localhost}
     env_file:
       - ./backend/.env
     volumes:
