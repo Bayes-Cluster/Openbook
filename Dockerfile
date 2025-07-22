@@ -7,21 +7,28 @@
 FROM node:18-alpine AS frontend-builder
 WORKDIR /frontend
 
-# 复制前端依赖文件
+# 复制前端依赖文件和配置文件
 COPY frontend/package*.json ./
 COPY frontend/next.config.js ./
 COPY frontend/tsconfig.json ./
+COPY frontend/tailwind.config.js ./
+COPY frontend/postcss.config.js ./
+COPY frontend/components.json ./
 
 # 安装前端依赖
 RUN npm ci
 
-# 复制前端源代码
+# 复制前端源代码（确保所有文件都复制）
 COPY frontend/ ./
+
+# 调试：检查文件结构
+RUN ls -la && ls -la lib/ && ls -la components/
 
 # 设置构建环境变量
 ENV NEXT_PUBLIC_API_URL=http://localhost/api
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
+ENV DOCKER_BUILD=true
 
 # 构建前端应用
 RUN npm run build
