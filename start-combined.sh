@@ -34,7 +34,7 @@ done
 
 # 启动前端服务
 echo "🎨 启动 Next.js 前端..."
-su app -c "cd /app/frontend && PORT=3000 node server.js" &
+su app -c "cd /app/frontend && PORT=3000 HOSTNAME=0.0.0.0 node server.js" &
 FRONTEND_PID=$!
 
 # 等待前端启动
@@ -56,9 +56,21 @@ echo "📖 API文档: http://localhost/docs"
 # 显示服务状态
 echo ""
 echo "📊 服务状态检查："
-netstat -tlnp | grep :8000 && echo "✅ 后端端口8000已监听" || echo "❌ 后端端口8000未监听"
-netstat -tlnp | grep :3000 && echo "✅ 前端端口3000已监听" || echo "❌ 前端端口3000未监听"  
-netstat -tlnp | grep :80 && echo "✅ Nginx端口80已监听" || echo "❌ Nginx端口80未监听"
+
+# 检查端口是否被监听
+check_port() {
+    local port=$1
+    local service=$2
+    if netstat -tlnp 2>/dev/null | grep ":$port " > /dev/null; then
+        echo "✅ $service 端口$port已监听"
+    else
+        echo "❌ $service 端口$port未监听"
+    fi
+}
+
+check_port 8000 "后端"
+check_port 3000 "前端"  
+check_port 80 "Nginx"
 echo ""
 
 # 健康检查

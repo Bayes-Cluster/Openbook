@@ -44,8 +44,12 @@ RUN apt-get update && apt-get install -y \
     # 网络工具
     curl \
     wget \
+    net-tools \
     # Web服务器
     nginx \
+    # Node.js (为了运行前端)
+    && curl -fsSL https://deb.nodesource.com/setup_18.x | bash - \
+    && apt-get install -y nodejs \
     # 清理缓存
     && rm -rf /var/lib/apt/lists/* \
     && apt-get clean
