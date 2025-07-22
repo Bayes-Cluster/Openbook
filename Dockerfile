@@ -21,9 +21,6 @@ RUN npm ci
 # 复制前端源代码（确保所有文件都复制）
 COPY frontend/ ./
 
-# 调试：检查文件结构
-RUN ls -la && ls -la lib/ && ls -la components/
-
 # 设置构建环境变量
 ENV NEXT_PUBLIC_API_URL=http://localhost/api
 ENV NODE_ENV=production
@@ -68,9 +65,6 @@ RUN pip install --no-cache-dir --upgrade pip && \
 
 # 复制后端源代码
 COPY backend/ ./
-
-# 复制环境配置文件
-COPY backend/.env ./.env
 
 # 复制启动脚本
 COPY start-combined.sh ./

@@ -18,26 +18,48 @@ nginx -t && nginx
 
 # 启动后端服务
 echo "🔗 启动 FastAPI 后端..."
-su app -c "cd /app && uvicorn main:app --host 127.0.0.1 --port 8000" &
+su app -c "cd /app && uvicorn main:app --host 0.0.0.0 --port 8000" &
 BACKEND_PID=$!
 
 # 等待后端启动
 echo "⏳ 等待后端服务启动..."
-sleep 5
+for i in {1..30}; do
+    if curl -f http://127.0.0.1:8000/health > /dev/null 2>&1; then
+        echo "✅ 后端服务已启动"
+        break
+    fi
+    echo "等待后端启动... ($i/30)"
+    sleep 2
+done
 
 # 启动前端服务
 echo "🎨 启动 Next.js 前端..."
-su app -c "cd /app/frontend && node server.js" &
+su app -c "cd /app/frontend && PORT=3000 node server.js" &
 FRONTEND_PID=$!
 
 # 等待前端启动
 echo "⏳ 等待前端服务启动..."
-sleep 10
+for i in {1..30}; do
+    if curl -f http://127.0.0.1:3000 > /dev/null 2>&1; then
+        echo "✅ 前端服务已启动"
+        break
+    fi
+    echo "等待前端启动... ($i/30)"
+    sleep 2
+done
 
 echo "✅ 所有服务已启动"
 echo "📡 后端API: http://localhost/api"
 echo "🎨 前端界面: http://localhost"
 echo "📖 API文档: http://localhost/docs"
+
+# 显示服务状态
+echo ""
+echo "📊 服务状态检查："
+netstat -tlnp | grep :8000 && echo "✅ 后端端口8000已监听" || echo "❌ 后端端口8000未监听"
+netstat -tlnp | grep :3000 && echo "✅ 前端端口3000已监听" || echo "❌ 前端端口3000未监听"  
+netstat -tlnp | grep :80 && echo "✅ Nginx端口80已监听" || echo "❌ Nginx端口80未监听"
+echo ""
 
 # 健康检查
 check_health() {
@@ -59,11 +81,19 @@ check_health() {
         return 1
     fi
     
-    # 检查Nginx
-    if curl -f http://127.0.0.1:80/health > /dev/null 2>&1; then
-        echo "✅ Nginx代理正常"
+    # 检查Nginx代理到后端
+    if curl -f http://127.0.0.1:80/api/health > /dev/null 2>&1; then
+        echo "✅ Nginx后端代理正常"
     else
-        echo "❌ Nginx代理异常"
+        echo "❌ Nginx后端代理异常"
+        return 1
+    fi
+    
+    # 检查Nginx代理到前端
+    if curl -f http://127.0.0.1:80 > /dev/null 2>&1; then
+        echo "✅ Nginx前端代理正常"
+    else
+        echo "❌ Nginx前端代理异常"
         return 1
     fi
 }

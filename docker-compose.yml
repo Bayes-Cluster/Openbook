@@ -7,16 +7,15 @@ services:
       dockerfile: Dockerfile
     ports:
       - "80:80"
-    env_file:
-      - ./backend/.env
     environment:
       - DATABASE_URL=sqlite:////app/data/openbook.db
       - SECRET_KEY=${SECRET_KEY:-your-secret-key-here}
       - ALLOWED_ORIGINS=["*"]
       - ENVIRONMENT=production
-      - HOST=127.0.0.1
+      - HOST=0.0.0.0
       - PORT=8000
       - NEXT_PUBLIC_API_URL=http://localhost/api
+      - DEBUG=False
     volumes:
       - ./data:/app/data
     restart: unless-stopped
