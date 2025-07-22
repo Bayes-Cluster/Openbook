@@ -42,4 +42,4 @@
 
 1. 后端: FastAPI (Python)
 2. 前端: Next.js (React)
-3. 数据库: PostgreSQL
+3. 数据库: Sqlite3
