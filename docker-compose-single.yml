@@ -1,0 +1,33 @@
+# 单容器部署配置 (推荐用于生产环境)
+services:
+  openbook:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "80:80"
+    environment:
+      - DATABASE_URL=sqlite:////app/data/openbook.db
+      - SECRET_KEY=${SECRET_KEY:-your-secret-key-here}
+      - ALLOWED_ORIGINS=["*"]
+      - ENVIRONMENT=production
+      - HOST=127.0.0.1
+      - PORT=8000
+      - NEXT_PUBLIC_API_URL=http://localhost/api
+      - OAUTH_REDIRECT_URI=http://localhost/api/auth/oauth/callback
+      - FRONTEND_URL=http://localhost
+    env_file:
+      - ./backend/.env
+    volumes:
+      - ./data:/app/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+volumes:
+  data:
+    driver: local

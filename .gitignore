@@ -1,8 +1,21 @@
-# Created by https://www.toptal.com/developers/gitignore/api/python,visualstudiocode
-# Edit at https://www.toptal.com/developers/gitignore?templates=python,visualstudiocode
+# Created by https://www.toptal.com/developers/gitignore/api/python,node,visualstudiocode
 
+# Environment variables and database files
 *.env
+.env*
 *.db
+*.sqlite
+*.sqlite3
+
+# Pixi cache
+.pixi/
+
+# macOS system files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
 
 ### Python ###
 # Byte-compiled / optimized / DLL files
@@ -126,8 +139,7 @@ celerybeat.pid
 # SageMath parsed files
 *.sage.py
 
-# Environments
-.env
+# Environments (env files already covered above)
 .venv
 env/
 venv/
@@ -272,17 +284,7 @@ web_modules/
 # Yarn Integrity file
 .yarn-integrity
 
-# dotenv environment variable files
-.env
-.env.development.local
-.env.test.local
-.env.production.local
-.env.local
-
-# parcel-bundler cache (https://parceljs.org/)
-.cache
-.parcel-cache
-
+# dotenv environment variable files (already covered above)
 # Next.js build output
 .next
 out
