@@ -288,3 +288,28 @@ async def get_week_calendar(
     calendar_data = service.get_calendar_data(week_start, week_end)
     
     return calendar_data
+
+@router.post("/update-statuses", summary="手动触发预约状态更新")
+async def update_booking_statuses(
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    """手动触发预约状态更新"""
+    service = BookingService(db)
+    updated_count = service.update_booking_statuses()
+    
+    return {
+        "message": f"成功更新了 {updated_count} 个预约的状态",
+        "updated_count": updated_count
+    }
+
+@router.get("/status-summary", summary="获取预约状态摘要")
+async def get_status_summary(
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    """获取预约状态摘要"""
+    service = BookingService(db)
+    summary = service.get_status_summary()
+    
+    return summary

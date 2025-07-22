@@ -161,9 +161,18 @@ class GenericOAuthService:
                 return response.json()
                 
         except httpx.HTTPError as e:
+            # 获取详细的错误信息
+            error_detail = str(e)
+            if hasattr(e, 'response') and e.response is not None:
+                try:
+                    error_response = e.response.json()
+                    error_detail = f"{error_response}"
+                except:
+                    error_detail = f"HTTP {e.response.status_code}: {e.response.text}"
+            
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"令牌交换失败: {str(e)}"
+                detail=f"令牌交换失败: {error_detail}"
             )
     
     async def get_user_info(self, access_token: str) -> Dict[str, Any]:

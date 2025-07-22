@@ -38,29 +38,23 @@ def init_db():
     
     db = SessionLocal()
     
-    # 检查是否已有数据
-    if db.query(User).count() > 0:
-        db.close()
-        return
+    try:
+        # 检查是否已有数据
+        user_count = db.query(User).count()
+        if user_count > 0:
+            db.close()
+            return
+    except Exception as e:
+        print(f"检查用户数据时出错: {e}")
+        # 如果表不存在，继续创建数据
+        pass
     
     try:
         # 创建示例用户
         users = [
             User(
-                id="user123",
-                name="张三",
-                email="zhangsan@example.com",
-                group="standard"
-            ),
-            User(
-                id="user456",
-                name="李四",
-                email="lisi@example.com",
-                group="premium"
-            ),
-            User(
                 id="admin",
-                name="管理员",
+                name="Administrator",
                 email="admin@example.com",
                 group="admin"
             )
@@ -73,23 +67,18 @@ def init_db():
         resources = [
             Resource(
                 id="gpu-01",
-                name="GPU-01",
-                description="NVIDIA RTX 4090 - 深度学习专用"
+                name="RTX-4090D-1",
+                description="NVIDIA RTX 4090D 24G - Deep Leraning"
             ),
             Resource(
                 id="gpu-02",
-                name="GPU-02",
-                description="NVIDIA RTX 4090 - 图像处理专用"
+                name="RTX-4090D-2",
+                description="NVIDIA RTX 4090D 24G - Deep Learning"
             ),
             Resource(
                 id="gpu-03",
-                name="GPU-03",
-                description="NVIDIA RTX 4080 - 通用计算"
-            ),
-            Resource(
-                id="gpu-04",
-                name="GPU-04",
-                description="NVIDIA RTX 4080 - 通用计算"
+                name="RTX-3080-20G",
+                description="NVIDIA RTX 3080 20G - General Purpose"
             )
         ]
         

@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, status, Query
 from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session
 from typing import Optional
+import os
 
 from database import get_db
 from auth import create_access_token, get_user_by_email
@@ -114,16 +115,18 @@ async def oauth_callback(
         access_token = create_access_token(data={"sub": user.email})
         
         # 重定向到前端（带令牌）
-        frontend_url = f"http://localhost:8080?token={access_token}&status=success"
-        return RedirectResponse(url=frontend_url)
+        frontend_url = os.getenv("FRONTEND_URL", "http://localhost:3000")
+        redirect_url = f"{frontend_url}?token={access_token}&status=success"
+        return RedirectResponse(url=redirect_url)
         
     except HTTPException:
         # 重新抛出HTTP异常
         raise
     except Exception as e:
         # 重定向到前端错误页面
-        frontend_url = f"http://localhost:8080?status=error&message={str(e)}"
-        return RedirectResponse(url=frontend_url)
+        frontend_url = os.getenv("FRONTEND_URL", "http://localhost:3000")
+        redirect_url = f"{frontend_url}?status=error&message={str(e)}"
+        return RedirectResponse(url=redirect_url)
 
 @router.get("/oauth/url", summary="获取OAuth授权URL")
 async def get_oauth_url():
