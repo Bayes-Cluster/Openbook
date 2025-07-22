@@ -288,7 +288,15 @@ class OpenBookApp {
             }).join('');
         } catch (error) {
             console.error('加载预约失败:', error);
-            container.innerHTML = '<p style="color: #f44336; text-align: center; padding: 2rem;">加载预约失败</p>';
+            container.innerHTML = `
+                <div class="alert alert-destructive">
+                    <i class="fas fa-exclamation-circle alert-icon"></i>
+                    <div class="alert-content">
+                        <div class="alert-title">加载失败</div>
+                        <div class="alert-description">无法加载预约信息，请刷新页面重试</div>
+                    </div>
+                </div>
+            `;
         }
     }
     
@@ -353,9 +361,47 @@ class OpenBookApp {
             console.log('收到日历数据:', calendarData);
             console.log('预约槽数量:', calendarData.slots?.length || 0);
             
+            // 添加测试数据来验证多任务功能
+            const testSlots = [
+                {
+                    start_time: new Date(startOfWeek.getTime() + 2*24*60*60*1000 + 10*60*60*1000).toISOString(), // 周三 10:00
+                    end_time: new Date(startOfWeek.getTime() + 2*24*60*60*1000 + 11*60*60*1000).toISOString(),   // 周三 11:00
+                    booking: {
+                        id: 'test1',
+                        task_name: '深度学习训练',
+                        user_id: this.currentUser?.id || 'current_user',
+                        status: 'confirmed'
+                    }
+                },
+                {
+                    start_time: new Date(startOfWeek.getTime() + 2*24*60*60*1000 + 10*60*60*1000).toISOString(), // 周三 10:00
+                    end_time: new Date(startOfWeek.getTime() + 2*24*60*60*1000 + 11*60*60*1000).toISOString(),   // 周三 11:00
+                    booking: {
+                        id: 'test2',
+                        task_name: '数据预处理',
+                        user_id: 'other_user',
+                        status: 'confirmed'
+                    }
+                },
+                {
+                    start_time: new Date(startOfWeek.getTime() + 2*24*60*60*1000 + 10*60*60*1000).toISOString(), // 周三 10:00
+                    end_time: new Date(startOfWeek.getTime() + 2*24*60*60*1000 + 11*60*60*1000).toISOString(),   // 周三 11:00
+                    booking: {
+                        id: 'test3',
+                        task_name: '模型验证',
+                        user_id: 'another_user',
+                        status: 'active'
+                    }
+                }
+            ];
+            
+            // 将测试数据合并到实际数据中
+            const allSlots = [...(calendarData.slots || []), ...testSlots];
+            console.log('合并后的槽数量:', allSlots.length);
+            
             // 检查是否有预约数据
-            if (calendarData.slots && calendarData.slots.length > 0) {
-                const bookingSlots = calendarData.slots.filter(slot => slot.booking);
+            if (allSlots.length > 0) {
+                const bookingSlots = allSlots.filter(slot => slot.booking);
                 console.log('有预约的时间槽:', bookingSlots.length, bookingSlots);
             }
             
@@ -363,7 +409,7 @@ class OpenBookApp {
             const header = this.generateCalendarHeader(startOfWeek);
             
             // 生成日历主体
-            const body = this.generateCalendarBody(startOfWeek, calendarData.slots || []);
+            const body = this.generateCalendarBody(startOfWeek, allSlots);
             
             calendar.innerHTML = header + body;
             
@@ -371,7 +417,15 @@ class OpenBookApp {
             this.bindCalendarEvents();
         } catch (error) {
             console.error('生成日历失败:', error);
-            calendar.innerHTML = '<div style="padding: 2rem; text-align: center; color: #f44336;">加载日历数据失败</div>';
+            calendar.innerHTML = `
+                <div class="alert alert-destructive" style="margin: 2rem;">
+                    <i class="fas fa-exclamation-circle alert-icon"></i>
+                    <div class="alert-content">
+                        <div class="alert-title">日历加载失败</div>
+                        <div class="alert-description">无法加载日历数据，请刷新页面重试</div>
+                    </div>
+                </div>
+            `;
         }
     }
     
@@ -417,12 +471,12 @@ class OpenBookApp {
         return body;
     }
     
-    // 生成日历单元格 - 修复时间匹配问题
+    // 生成日历单元格 - 支持多任务并排显示
     generateCalendarCell(startTime, endTime, day, hour, slots) {
         const cellId = `cell-${day}-${hour}`;
         
-        // 使用更灵活的时间匹配方法
-        const slot = slots.find(s => {
+        // 查找所有重叠的时间段
+        const overlappingSlots = slots.filter(s => {
             const slotStart = new Date(s.start_time);
             const slotEnd = new Date(s.end_time);
             
@@ -437,22 +491,51 @@ class OpenBookApp {
         let cellClass = 'calendar-cell available';
         let cellContent = '';
         
-        if (slot && slot.booking) {
-            const booking = slot.booking;
-            console.log('找到预约:', booking.task_name, '时间:', slot.start_time); // 调试输出
+        if (overlappingSlots.length > 0) {
+            // 有预约的情况
+            const bookings = overlappingSlots.filter(s => s.booking).map(s => s.booking);
             
-            if (booking.user_id === this.currentUser.id) {
-                cellClass = 'calendar-cell my-booking';
-                cellContent = `<div class="booking-block my-booking" data-booking-id="${booking.id}">${booking.task_name}</div>`;
-            } else {
-                const status = this.getBookingStatus(booking);
-                if (status.class === 'active') {
-                    cellClass = 'calendar-cell in-use';
-                    cellContent = `<div class="booking-block in-use">使用中</div>`;
+            if (bookings.length > 0) {
+                console.log(`时间段 ${hour}:00 发现 ${bookings.length} 个预约:`, bookings.map(b => b.task_name)); // 调试输出
+                
+                // 检查是否有我的预约
+                const hasMyBooking = bookings.some(booking => booking.user_id === this.currentUser.id);
+                
+                if (hasMyBooking) {
+                    cellClass = 'calendar-cell my-booking-container';
                 } else {
-                    cellClass = 'calendar-cell booked';
-                    cellContent = `<div class="booking-block booked">已预约</div>`;
+                    cellClass = 'calendar-cell booked-container';
                 }
+                
+                // 生成多个任务的HTML
+                cellContent = '<div class="booking-tasks-container">';
+                bookings.forEach((booking, index) => {
+                    const status = this.getBookingStatus(booking);
+                    let taskClass, taskText;
+                    
+                    if (booking.user_id === this.currentUser.id) {
+                        taskClass = 'booking-block my-booking';
+                        taskText = booking.task_name;
+                    } else if (status.class === 'active') {
+                        taskClass = 'booking-block in-use';
+                        taskText = '使用中';
+                    } else {
+                        taskClass = 'booking-block booked';
+                        taskText = '已预约';
+                    }
+                    
+                    cellContent += `
+                        <div class="${taskClass}" data-booking-id="${booking.id}">
+                            <span class="task-text">${taskText}</span>
+                        </div>
+                    `;
+                });
+                cellContent += '</div>';
+                
+                console.log(`生成的HTML:`, cellContent); // 调试输出
+            } else {
+                // 有时间段但没有预约的情况
+                cellClass = 'calendar-cell available';
             }
         }
         
@@ -469,16 +552,24 @@ class OpenBookApp {
     // 处理单元格点击
     handleCellClick(e) {
         const cell = e.currentTarget;
-        const bookingBlock = cell.querySelector('.booking-block[data-booking-id]');
         
-        // 如果点击的是我的预约
-        if (bookingBlock) {
-            const bookingId = bookingBlock.dataset.bookingId;
+        // 检查是否点击在具体的booking-block上
+        const clickedBooking = e.target.closest('.booking-block[data-booking-id]');
+        if (clickedBooking) {
+            const bookingId = clickedBooking.dataset.bookingId;
             this.showManageBookingModal(bookingId);
             return;
         }
         
-        // 如果已被预约，不允许操作
+        // 检查是否有我的预约
+        const myBookingBlock = cell.querySelector('.booking-block.my-booking[data-booking-id]');
+        if (myBookingBlock) {
+            const bookingId = myBookingBlock.dataset.bookingId;
+            this.showManageBookingModal(bookingId);
+            return;
+        }
+        
+        // 如果有任何预约（包括其他人的预约），不允许新建预约
         if (cell.querySelector('.booking-block')) {
             return;
         }

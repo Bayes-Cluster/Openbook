@@ -459,16 +459,35 @@ body {
     cursor: pointer;
 }
 
+.calendar-cell.my-booking-container {
+    background: #f0f8ff;
+    cursor: pointer;
+}
+
+.calendar-cell.booked-container {
+    background: #fff5f5;
+    cursor: not-allowed;
+}
+
 .calendar-cell.selecting {
     background: rgba(102, 126, 234, 0.3);
 }
 
+/* 多任务容器样式 */
+.booking-tasks-container {
+    position: absolute !important;
+    top: 2px !important;
+    left: 2px !important;
+    right: 2px !important;
+    bottom: 2px !important;
+    display: flex !important;
+    align-items: stretch !important;
+    gap: 1px !important;
+    width: calc(100% - 4px) !important;
+    height: calc(100% - 4px) !important;
+}
+
 .booking-block {
-    position: absolute;
-    top: 2px;
-    left: 2px;
-    right: 2px;
-    bottom: 2px;
     border-radius: 4px;
     display: flex;
     align-items: center;
@@ -481,6 +500,53 @@ body {
     padding: 0.25rem;
     text-align: center;
     line-height: 1.2;
+    box-sizing: border-box;
+    min-width: 0; /* 允许文本被截断 */
+}
+
+/* 单个任务块样式（非容器模式） */
+.calendar-cell:not(.my-booking-container):not(.booked-container) .booking-block {
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    right: 2px;
+    bottom: 2px;
+}
+
+/* 多任务容器中的任务块 */
+.booking-tasks-container .booking-block {
+    position: relative !important; /* 在flex容器中使用相对定位 */
+    flex: 1 !important; /* 平均分配空间 */
+}
+
+.task-text {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    width: 100%;
+}
+
+/* 多任务时的特殊样式 */
+.booking-tasks-container .booking-block {
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    margin: 0;
+}
+
+.booking-tasks-container .booking-block:first-child {
+    border-radius: 4px 0 0 4px;
+}
+
+.booking-tasks-container .booking-block:last-child {
+    border-radius: 0 4px 4px 0;
+}
+
+.booking-tasks-container .booking-block:only-child {
+    border-radius: 4px;
+}
+
+/* 当只有一个任务时，保持原有的样式 */
+.booking-tasks-container .booking-block:only-child {
+    border: none;
 }
 
 .booking-block.booked {
@@ -703,6 +769,66 @@ body {
     border-color: #667eea;
     background: #667eea;
     color: white;
+}
+
+/* 错误提示样式 */
+.alert {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 1rem;
+    margin: 1rem 0;
+    border-radius: 8px;
+    border: 1px solid transparent;
+    font-size: 0.875rem;
+    line-height: 1.5;
+}
+
+.alert-destructive {
+    background-color: #fef2f2;
+    border-color: #fecaca;
+    color: #dc2626;
+}
+
+.alert-destructive .alert-icon {
+    color: #dc2626;
+}
+
+.alert-content {
+    flex: 1;
+}
+
+.alert-title {
+    font-weight: 600;
+    margin-bottom: 0.25rem;
+}
+
+.alert-description {
+    opacity: 0.9;
+}
+
+.alert-close {
+    background: none;
+    border: none;
+    color: #dc2626;
+    cursor: pointer;
+    padding: 0.25rem;
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    margin-left: auto;
+    transition: background-color 0.2s ease;
+}
+
+.alert-close:hover {
+    background-color: rgba(220, 38, 38, 0.1);
+}
+
+.alert-close i {
+    font-size: 0.875rem;
 }
 
 /* 响应式设计 */

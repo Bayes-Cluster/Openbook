@@ -15,6 +15,7 @@ interface Resource {
   id: string;
   name: string;
   description: string;
+  total_memory_gb: number;
   is_active: boolean;
 }
 
@@ -58,6 +59,7 @@ export default function BookingCalendar({ onBookingCreated }: BookingCalendarPro
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [apiError, setApiError] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [currentTime, setCurrentTime] = useState<Date>(new Date());
   const [statusSummary, setStatusSummary] = useState<{
     upcoming: number;
@@ -78,7 +80,8 @@ export default function BookingCalendar({ onBookingCreated }: BookingCalendarPro
     start_hour: 0,
     start_minute: 0,
     end_hour: 0,
-    end_minute: 0
+    end_minute: 0,
+    estimated_memory_gb: 12
   });
 
   const calendarRef = useRef<HTMLDivElement>(null);
@@ -128,10 +131,16 @@ export default function BookingCalendar({ onBookingCreated }: BookingCalendarPro
       const userData = await apiClient.getCurrentUser();
       currentUser.current = userData.id;
 
-      // Load resources and bookings
-      const [resourcesData, bookingsData] = await Promise.all([
+      // Load resources and calendar data for all bookings
+      // Get the week range for calendar data
+      const weekStart = new Date(currentWeek);
+      weekStart.setDate(weekStart.getDate() - weekStart.getDay()); // Start of week (Sunday)
+      const weekEnd = new Date(weekStart);
+      weekEnd.setDate(weekEnd.getDate() + 7); // End of week
+      
+      const [resourcesData, calendarData] = await Promise.all([
         apiClient.getResources(),
-        apiClient.getBookings(),
+        apiClient.getCalendarData(weekStart, weekEnd),
       ]);
 
       const activeResources = resourcesData.filter((r: Resource) => r.is_active);
@@ -142,8 +151,8 @@ export default function BookingCalendar({ onBookingCreated }: BookingCalendarPro
         setSelectedResourceId(activeResources[0].id);
       }
       
-      // Convert bookings to calendar format with proper time handling
-      const calendarBookings: CalendarBooking[] = bookingsData.map((booking: Booking) => ({
+      // Convert bookings from calendar data to calendar format with proper time handling
+      const calendarBookings: CalendarBooking[] = calendarData.bookings.map((booking: any) => ({
         id: booking.id,
         resourceId: booking.resource_id,
         startTime: TimeUtils.fromUTCISOString(booking.start_time),
@@ -199,7 +208,18 @@ export default function BookingCalendar({ onBookingCreated }: BookingCalendarPro
     );
   };
 
-  // Get booking for a specific slot with precise time matching
+  // Get all bookings for a specific slot (支持多个重叠预约)
+  const getSlotBookings = (resourceId: string, day: Date, hour: number) => {
+    const slotStart = TimeUtils.setTime(day, hour, 0, 0);
+    const slotEnd = TimeUtils.setTime(day, hour + 1, 0, 0);
+
+    return bookings.filter(booking => 
+      booking.resourceId === resourceId &&
+      TimeUtils.hasTimeConflict(booking.startTime, booking.endTime, slotStart, slotEnd)
+    );
+  };
+
+  // Get booking for a specific slot with precise time matching (保持向后兼容)
   const getSlotBooking = (resourceId: string, day: Date, hour: number) => {
     const slotStart = TimeUtils.setTime(day, hour, 0, 0);
     const slotEnd = TimeUtils.setTime(day, hour + 1, 0, 0);
@@ -214,11 +234,9 @@ export default function BookingCalendar({ onBookingCreated }: BookingCalendarPro
   const handleMouseDown = (resourceId: string, day: Date, hour: number, e: React.MouseEvent) => {
     e.preventDefault();
     
-    // Check if slot is already occupied
-    if (isSlotOccupied(resourceId, day, hour)) {
-      return;
-    }
-
+    // 移除时间冲突检查 - 允许多个用户在同一时间段预约（基于内存管理）
+    // 后端会在提交时检查内存冲突，前端允许用户选择任何时间段
+    
     const startTime = TimeUtils.setTime(day, hour, 0, 0);
     const endTime = TimeUtils.setTime(day, hour + 1, 0, 0);
 
@@ -236,11 +254,9 @@ export default function BookingCalendar({ onBookingCreated }: BookingCalendarPro
       return;
     }
 
-    // Check if slot is already occupied
-    if (isSlotOccupied(resourceId, day, hour)) {
-      return;
-    }
-
+    // 移除时间冲突检查 - 允许拖拽到已有预约的时间段
+    // 内存冲突会在后端提交时检查
+    
     const currentTime = TimeUtils.setTime(day, hour, 0, 0);
 
     // Update end time if extending selection
@@ -256,9 +272,16 @@ export default function BookingCalendar({ onBookingCreated }: BookingCalendarPro
 
   const handleMouseUp = () => {
     if (dragSelection && isDragging) {
+      // Clear any previous API errors when starting a new booking
+      setApiError(null);
+      
       // Show booking dialog with pre-filled data using proper time formatting
       const startTime = dragSelection.startTime;
       const endTime = dragSelection.endTime;
+      
+      // Get default memory based on selected resource
+      const selectedResource = resources.find(r => r.id === dragSelection.resourceId);
+      const defaultMemory = selectedResource ? Math.floor(selectedResource.total_memory_gb / 2) : 12;
       
       setNewBooking({
         resource_id: dragSelection.resourceId,
@@ -268,7 +291,8 @@ export default function BookingCalendar({ onBookingCreated }: BookingCalendarPro
         start_hour: startTime.getHours(),
         start_minute: startTime.getMinutes(),
         end_hour: endTime.getHours(),
-        end_minute: endTime.getMinutes()
+        end_minute: endTime.getMinutes(),
+        estimated_memory_gb: defaultMemory
       });
       setShowBookingDialog(true);
     }
@@ -313,7 +337,8 @@ export default function BookingCalendar({ onBookingCreated }: BookingCalendarPro
       
       // 验证时间
       if (endTime <= startTime) {
-        setApiError('结束时间必须晚于开始时间');
+        const errorMsg = '结束时间必须晚于开始时间';
+        setApiError(errorMsg);
         return;
       }
       
@@ -321,10 +346,16 @@ export default function BookingCalendar({ onBookingCreated }: BookingCalendarPro
         resource_id: newBooking.resource_id,
         task_name: newBooking.task_name,
         start_time: TimeUtils.toUTCISOString(startTime),
-        end_time: TimeUtils.toUTCISOString(endTime)
+        end_time: TimeUtils.toUTCISOString(endTime),
+        estimated_memory_gb: newBooking.estimated_memory_gb
       };
       
       await apiClient.createBooking(bookingData);
+      
+      // 成功通知
+      setSuccessMessage(`已成功创建预约：${newBooking.task_name}`);
+      setTimeout(() => setSuccessMessage(null), 3000); // 3秒后清除成功消息
+      
       setShowBookingDialog(false);
       setDragSelection(null);
       setNewBooking({ 
@@ -335,7 +366,8 @@ export default function BookingCalendar({ onBookingCreated }: BookingCalendarPro
         start_hour: 0,
         start_minute: 0,
         end_hour: 0,
-        end_minute: 0
+        end_minute: 0,
+        estimated_memory_gb: 12
       });
       loadData();
       onBookingCreated?.();
@@ -355,7 +387,19 @@ export default function BookingCalendar({ onBookingCreated }: BookingCalendarPro
       start_hour: 0,
       start_minute: 0,
       end_hour: 0,
-      end_minute: 0
+      end_minute: 0,
+      estimated_memory_gb: 12
+    });
+  };
+
+  const handleResourceChange = (resourceId: string) => {
+    const selectedResource = resources.find(r => r.id === resourceId);
+    const defaultMemory = selectedResource ? Math.floor(selectedResource.total_memory_gb / 2) : 12;
+    
+    setNewBooking({
+      ...newBooking, 
+      resource_id: resourceId,
+      estimated_memory_gb: defaultMemory
     });
   };
 
@@ -366,17 +410,23 @@ export default function BookingCalendar({ onBookingCreated }: BookingCalendarPro
     setApiError(null);
   };
 
-  // Get status color
+  const handleBookingClick = (booking: CalendarBooking) => {
+    // Show booking details in a simple alert or status message
+    setSuccessMessage(`预约详情: ${booking.taskName} - ${booking.isOwn ? '我的预约' : '他人预约'}`);
+    setTimeout(() => setSuccessMessage(null), 3000);
+  };
+
+  // Get status color with transparency for overlapping bookings
   const getStatusColor = (status: string, isOwn: boolean) => {
     if (isOwn) {
       switch (status) {
-        case 'upcoming': return 'bg-blue-500';
-        case 'active': return 'bg-green-500';
-        case 'completed': return 'bg-gray-400';
-        default: return 'bg-gray-400';
+        case 'upcoming': return 'bg-blue-500 bg-opacity-60';
+        case 'active': return 'bg-green-500 bg-opacity-60';
+        case 'completed': return 'bg-gray-400 bg-opacity-60';
+        default: return 'bg-gray-400 bg-opacity-60';
       }
     } else {
-      return 'bg-red-300'; // Other user's booking
+      return 'bg-red-300 bg-opacity-60'; // Other user's booking
     }
   };
 
@@ -453,6 +503,45 @@ export default function BookingCalendar({ onBookingCreated }: BookingCalendarPro
               </div>
             </div>
           </div>
+          
+          {/* Success and Error Messages */}
+          {successMessage && (
+            <Alert className="border-green-200 bg-green-50">
+              <Check className="h-4 w-4 text-green-600" />
+              <AlertDescription className="text-green-800">
+                <div className="flex items-center justify-between">
+                  <span>{successMessage}</span>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setSuccessMessage(null)}
+                    className="ml-2 h-6 w-6 p-0 hover:bg-green-100 text-green-600"
+                  >
+                    ×
+                  </Button>
+                </div>
+              </AlertDescription>
+            </Alert>
+          )}
+          
+          {error && (
+            <Alert variant="destructive">
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>
+                <div className="flex items-center justify-between">
+                  <span>{error}</span>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setError(null)}
+                    className="ml-2 h-6 w-6 p-0 hover:bg-red-100"
+                  >
+                    ×
+                  </Button>
+                </div>
+              </AlertDescription>
+            </Alert>
+          )}
           
           {/* Resource Selector */}
           <div className="flex items-center justify-between">
@@ -557,8 +646,7 @@ export default function BookingCalendar({ onBookingCreated }: BookingCalendarPro
                   
                   {/* Day cells */}
                   {weekDays.map((day, dayIndex) => {
-                    const isOccupied = isSlotOccupied(selectedResourceId, day, hour);
-                    const booking = getSlotBooking(selectedResourceId, day, hour);
+                    const slotBookings = getSlotBookings(selectedResourceId, day, hour);
                     const isInSelection = isInDragSelection(selectedResourceId, day, hour);
                     
                     return (
@@ -566,8 +654,8 @@ export default function BookingCalendar({ onBookingCreated }: BookingCalendarPro
                         key={`${selectedResourceId}-${hour}-${dayIndex}`}
                         className={`
                           relative border-r border-gray-200 h-8 cursor-pointer transition-all duration-150
-                          ${isOccupied 
-                            ? `${getStatusColor(booking?.status || '', booking?.isOwn || false)} text-white text-xs`
+                          ${slotBookings.length > 0 
+                            ? 'bg-gray-50'
                             : 'bg-white hover:bg-gray-100'
                           }
                           ${isInSelection ? 'bg-blue-200 border-blue-400 shadow-inner' : ''}
@@ -576,21 +664,38 @@ export default function BookingCalendar({ onBookingCreated }: BookingCalendarPro
                         onMouseDown={(e) => handleMouseDown(selectedResourceId, day, hour, e)}
                         onMouseEnter={() => handleMouseEnter(selectedResourceId, day, hour)}
                         title={
-                          booking 
-                            ? `${booking.taskName} (${booking.isOwn ? '我的预约' : '他人预约'})`
+                          slotBookings.length > 0
+                            ? slotBookings.map(b => `${b.taskName} (${b.isOwn ? '我的预约' : '他人预约'})`).join('\n')
                             : `${resources.find(r => r.id === selectedResourceId)?.name} - ${hour}:00`
                         }
                       >
-                        {booking && (
-                          <div className="absolute inset-0 flex items-center justify-center">
-                            <span className="text-xs font-medium truncate px-1">
-                              {booking.taskName}
-                            </span>
+                        {/* Render all bookings for this slot with width distribution */}
+                        {slotBookings.length > 0 && (
+                          <div className="absolute inset-0 flex gap-px">
+                            {slotBookings.map((booking, index) => {
+                              const widthPercentage = 100 / slotBookings.length;
+                              return (
+                                <div
+                                  key={booking.id}
+                                  className={`${getStatusColor(booking.status, booking.isOwn)} text-white text-xs flex items-center justify-center`}
+                                  style={{
+                                    width: `${widthPercentage}%`,
+                                    zIndex: 10 + index
+                                  }}
+                                  onClick={() => handleBookingClick && handleBookingClick(booking)}
+                                >
+                                  <span className="font-medium truncate px-1">
+                                    {slotBookings.length === 1 ? booking.taskName : booking.taskName.substring(0, 6)}
+                                  </span>
+                                </div>
+                              );
+                            })}
                           </div>
                         )}
+                        
                         {/* 拖拽阴影效果 */}
                         {isInSelection && (
-                          <div className="absolute inset-0 bg-blue-300 bg-opacity-30 border border-blue-400"></div>
+                          <div className="absolute inset-0 bg-blue-300 bg-opacity-30 border border-blue-400" style={{ zIndex: 20 }}></div>
                         )}
                       </div>
                     );
@@ -616,6 +721,27 @@ export default function BookingCalendar({ onBookingCreated }: BookingCalendarPro
               请确认预约详情并填写任务名称
             </DialogDescription>
           </DialogHeader>
+          
+          {/* Error Display in Dialog */}
+          {apiError && (
+            <Alert variant="destructive">
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>
+                <div className="flex items-center justify-between">
+                  <span>{apiError}</span>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setApiError(null)}
+                    className="ml-2 h-6 w-6 p-0 hover:bg-red-100"
+                  >
+                    ×
+                  </Button>
+                </div>
+              </AlertDescription>
+            </Alert>
+          )}
+          
           <div className="space-y-4">
             <div>
               <label className="text-sm font-medium mb-2 block">资源</label>
@@ -706,6 +832,21 @@ export default function BookingCalendar({ onBookingCreated }: BookingCalendarPro
               </div>
             </div>
             <div>
+              <label className="text-sm font-medium mb-2 block">资源 *</label>
+              <select
+                className="w-full p-2 border border-gray-300 rounded-md"
+                value={newBooking.resource_id}
+                onChange={(e) => handleResourceChange(e.target.value)}
+              >
+                <option value="">选择资源</option>
+                {resources.map((resource) => (
+                  <option key={resource.id} value={resource.id}>
+                    {resource.name} ({resource.total_memory_gb}GB)
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
               <label className="text-sm font-medium mb-2 block">任务名称 *</label>
               <Input
                 value={newBooking.task_name}
@@ -714,11 +855,27 @@ export default function BookingCalendar({ onBookingCreated }: BookingCalendarPro
                 autoFocus
               />
             </div>
+            <div>
+              <label className="text-sm font-medium mb-2 block">显存需求 (GB)</label>
+              <Input
+                type="number"
+                value={newBooking.estimated_memory_gb}
+                onChange={(e) => setNewBooking({...newBooking, estimated_memory_gb: Number(e.target.value) || 1})}
+                placeholder="输入显存需求"
+                min="1"
+                max="1000"
+              />
+              {newBooking.resource_id && (
+                <p className="text-xs text-gray-500 mt-1">
+                  所选资源显存: {resources.find(r => r.id === newBooking.resource_id)?.total_memory_gb}GB
+                </p>
+              )}
+            </div>
             <div className="flex space-x-2 pt-4">
               <Button 
                 onClick={handleCreateBooking} 
                 className="flex-1"
-                disabled={!newBooking.task_name.trim()}
+                disabled={!newBooking.resource_id || !newBooking.task_name.trim() || !newBooking.estimated_memory_gb}
               >
                 <Check className="h-4 w-4 mr-2" />
                 确认预约
@@ -735,13 +892,6 @@ export default function BookingCalendar({ onBookingCreated }: BookingCalendarPro
           </div>
         </DialogContent>
       </Dialog>
-
-      {/* Error Display */}
-      {apiError && (
-        <Alert variant="destructive" className="mt-4">
-          <AlertDescription>{apiError}</AlertDescription>
-        </Alert>
-      )}
     </div>
   );
 }

@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { apiClient } from '@/lib/api';
-import { Shield, Eye, EyeOff, ArrowLeft } from 'lucide-react';
+import { Shield, Eye, EyeOff, ArrowLeft, AlertCircle } from 'lucide-react';
 import Link from 'next/link';
 
 export default function AdminLoginPage() {
@@ -58,7 +58,20 @@ export default function AdminLoginPage() {
               {/* Error Alert */}
               {error && (
                 <Alert variant="destructive">
-                  <AlertDescription>{error}</AlertDescription>
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertDescription>
+                    <div className="flex items-center justify-between">
+                      <span>{error}</span>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setError('')}
+                        className="ml-2 h-6 w-6 p-0 hover:bg-red-100"
+                      >
+                        ×
+                      </Button>
+                    </div>
+                  </AlertDescription>
                 </Alert>
               )}
 

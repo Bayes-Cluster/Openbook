@@ -50,13 +50,19 @@ class BookingService:
         if duration > timedelta(hours=24):
             raise ValueError("单次预约时长不能超过24小时")
 
-    def _check_memory_availability(self, resource_id: str, start_time: datetime, end_time: datetime, 
-                                 required_memory_gb: int, exclude_booking_id: str = None) -> dict:
+    def _check_memory_availability(self, resource_id: str, start_time: datetime = None, end_time: datetime = None, 
+                                 required_memory_gb: int = None, exclude_booking_id: str = None) -> dict:
         """检查资源显存可用性"""
         # 获取资源信息
         resource = self.db.query(Resource).filter(Resource.id == resource_id).first()
         if not resource:
             raise ValueError("资源不存在")
+        
+        # 如果没有指定时间段，检查当前时间点的可用性
+        if start_time is None or end_time is None:
+            current_time = datetime.utcnow()
+            start_time = current_time
+            end_time = current_time + timedelta(hours=1)  # 默认检查1小时
         
         # 查找在指定时间段内有冲突的预约
         query = self.db.query(Booking).filter(
@@ -78,14 +84,21 @@ class BookingService:
         used_memory = sum(booking.estimated_memory_gb for booking in conflicting_bookings)
         available_memory = resource.total_memory_gb - used_memory
         
-        return {
-            "can_book": available_memory >= required_memory_gb,
-            "available_memory": available_memory,
-            "total_memory": resource.total_memory_gb,
-            "used_memory": used_memory,
-            "required_memory": required_memory_gb,
+        result = {
+            "total_memory_gb": resource.total_memory_gb,
+            "available_memory_gb": available_memory,
+            "used_memory_gb": used_memory,
             "conflicting_bookings": [booking.id for booking in conflicting_bookings]
         }
+        
+        # 如果指定了内存需求，添加是否可以预约的判断
+        if required_memory_gb is not None:
+            result.update({
+                "can_book": available_memory >= required_memory_gb,
+                "required_memory_gb": required_memory_gb
+            })
+            
+        return result
 
     def update_booking_statuses(self) -> int:
         """自动更新预约状态，返回更新的数量"""
@@ -287,13 +300,11 @@ class BookingService:
         if not memory_check["can_book"]:
             raise ValueError(
                 f"显存不足！需要 {booking.estimated_memory_gb}GB，"
-                f"可用 {memory_check['available_memory']}GB"
+                f"可用 {memory_check['available_memory_gb']}GB"
             )
-
-        # 检查时间冲突（传统的时间冲突检查，现在主要用于验证）
-        if self._has_time_conflict(booking.resource_id, start_time, end_time):
-            raise ValueError("该时间段已被预约，请选择其他时间")
-
+        # 显存检查已经包含了必要的冲突检查
+        # 移除传统的时间冲突检查，因为现在允许多个预约共享同一资源（只要显存够）
+        
         # 创建预约
         db_booking = Booking(
             id=str(uuid.uuid4()),
@@ -339,14 +350,19 @@ class BookingService:
             if new_end_time <= db_booking.start_time:
                 raise ValueError("结束时间必须晚于开始时间")
 
-            # 检查是否有时间冲突
-            if self._has_time_conflict(
-                db_booking.resource_id, 
-                db_booking.start_time, 
+            # 检查显存可用性（包括时间重叠和显存限制）
+            memory_check = self._check_memory_availability(
+                db_booking.resource_id,
+                db_booking.start_time,
                 new_end_time,
+                db_booking.estimated_memory_gb,
                 exclude_booking_id=booking_id
-            ):
-                raise ValueError("修改后的时间与其他预约冲突")
+            )
+            if not memory_check["can_book"]:
+                raise ValueError(
+                    f"显存不足！需要 {db_booking.estimated_memory_gb}GB，"
+                    f"可用 {memory_check['available_memory_gb']}GB"
+                )
 
             db_booking.end_time = new_end_time
 
@@ -395,14 +411,19 @@ class BookingService:
         # 计算新的结束时间
         new_end_time = db_booking.end_time + timedelta(hours=extend_data.hours)
 
-        # 检查是否有时间冲突
-        if self._has_time_conflict(
+        # 检查显存可用性（包括时间重叠和显存限制）
+        memory_check = self._check_memory_availability(
             db_booking.resource_id,
-            db_booking.end_time,
+            db_booking.start_time,
             new_end_time,
+            db_booking.estimated_memory_gb,
             exclude_booking_id=booking_id
-        ):
-            raise ValueError("延长时间与其他预约冲突")
+        )
+        if not memory_check["can_book"]:
+            raise ValueError(
+                f"显存不足！延长预约需要 {db_booking.estimated_memory_gb}GB，"
+                f"可用 {memory_check['available_memory_gb']}GB"
+            )
 
         # 更新结束时间
         db_booking.end_time = new_end_time
@@ -486,6 +507,7 @@ class BookingService:
                         resource_id=booking.resource_id,
                         resource_name=booking.resource.name,
                         task_name=booking.task_name,
+                        estimated_memory_gb=booking.estimated_memory_gb,
                         start_time=booking.start_time,
                         end_time=booking.end_time,
                         original_end_time=booking.original_end_time,
@@ -504,11 +526,30 @@ class BookingService:
             
             current_time = slot_end
 
+        # Convert all bookings to BookingResponse format for the bookings list
+        booking_responses = []
+        for booking in bookings:
+            booking_responses.append(BookingResponse(
+                id=booking.id,
+                user_id=booking.user_id,
+                resource_id=booking.resource_id,
+                resource_name=booking.resource.name,
+                task_name=booking.task_name,
+                estimated_memory_gb=booking.estimated_memory_gb,
+                start_time=booking.start_time,
+                end_time=booking.end_time,
+                original_end_time=booking.original_end_time,
+                status=booking.status,
+                created_at=booking.created_at,
+                updated_at=booking.updated_at
+            ))
+
         return CalendarResponse(
             start_date=start_date,
             end_date=end_date,
             resources=resources,
-            slots=slots
+            slots=slots,
+            bookings=booking_responses
         )
 
     def _has_time_conflict(self, resource_id: str, start_time: datetime, end_time: datetime, exclude_booking_id: str = None) -> bool:

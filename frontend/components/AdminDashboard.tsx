@@ -19,7 +19,8 @@ import {
   Edit2,
   Power,
   Shield,
-  Trash2
+  Trash2,
+  AlertCircle
 } from 'lucide-react';
 
 interface AdminStats {
@@ -44,6 +45,7 @@ interface Resource {
   id: string;
   name: string;
   description?: string;
+  total_memory_gb: number;
   is_active: boolean;
   created_at: string;
 }
@@ -61,6 +63,7 @@ export default function AdminDashboard() {
   const [showCreateResource, setShowCreateResource] = useState(false);
   const [newResourceName, setNewResourceName] = useState('');
   const [newResourceDesc, setNewResourceDesc] = useState('');
+  const [newResourceMemory, setNewResourceMemory] = useState(24);
 
   useEffect(() => {
     loadData();
@@ -112,9 +115,10 @@ export default function AdminDashboard() {
     if (!newResourceName.trim()) return;
     
     try {
-      await apiClient.createResource(newResourceName, newResourceDesc);
+      await apiClient.createResource(newResourceName, newResourceDesc, newResourceMemory);
       setNewResourceName('');
       setNewResourceDesc('');
+      setNewResourceMemory(24);
       setShowCreateResource(false);
       await loadData();
     } catch (err) {
@@ -173,7 +177,20 @@ export default function AdminDashboard() {
         {/* Error Alert */}
         {error && (
           <Alert variant="destructive" className="mb-6">
-            <AlertDescription>{error}</AlertDescription>
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription>
+              <div className="flex items-center justify-between">
+                <span>{error}</span>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setError(null)}
+                  className="ml-2 h-6 w-6 p-0 hover:bg-red-100"
+                >
+                  ×
+                </Button>
+              </div>
+            </AlertDescription>
           </Alert>
         )}
 
@@ -352,6 +369,18 @@ export default function AdminDashboard() {
                     value={newResourceDesc}
                     onChange={(e) => setNewResourceDesc(e.target.value)}
                   />
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">显存容量 (GB)</label>
+                    <Input
+                      type="number"
+                      placeholder="24"
+                      value={newResourceMemory}
+                      onChange={(e) => setNewResourceMemory(Number(e.target.value) || 24)}
+                      min="1"
+                      max="1000"
+                    />
+                    <p className="text-xs text-gray-500">默认为 24GB，可根据实际GPU配置调整</p>
+                  </div>
                   <div className="flex space-x-2">
                     <Button onClick={handleCreateResource}>创建</Button>
                     <Button variant="outline" onClick={() => setShowCreateResource(false)}>
@@ -375,6 +404,9 @@ export default function AdminDashboard() {
                       <div className="flex-1">
                         <div className="font-medium">{resource.name}</div>
                         <div className="text-sm text-gray-500">{resource.description}</div>
+                        <div className="text-sm text-blue-600 font-medium">
+                          显存: {resource.total_memory_gb}GB
+                        </div>
                         <div className="text-xs text-gray-400">
                           ID: {resource.id} | 状态: {resource.is_active ? '可用' : '禁用'}
                         </div>

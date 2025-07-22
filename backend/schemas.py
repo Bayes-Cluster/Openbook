@@ -140,6 +140,7 @@ class CalendarResponse(BaseModel):
     end_date: datetime
     resources: List[Resource]
     slots: List[CalendarSlot]
+    bookings: List[BookingResponse]
 
 # 统计响应模式
 class BookingStats(BaseModel):

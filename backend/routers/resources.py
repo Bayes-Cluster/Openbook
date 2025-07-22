@@ -6,7 +6,7 @@ from typing import List
 from database import get_db
 from auth import get_current_active_user, check_user_permissions
 from models import User
-from schemas import Resource, ResourceStats, SuccessResponse
+from schemas import Resource, ResourceStats, SuccessResponse, ResourceAvailability
 from services import ResourceService
 
 router = APIRouter(prefix="/resources", tags=["资源管理"])
@@ -127,3 +127,44 @@ async def check_resource_availability(
         "is_available": not has_conflict,
         "duration_hours": (end_time - start_time).total_seconds() / 3600
     }
+
+@router.get("/{resource_id}/memory", response_model=ResourceAvailability, summary="检查资源显存可用性")
+async def check_resource_memory(
+    resource_id: str,
+    estimated_memory_gb: float = Query(..., description="预估显存需求(GB)"),
+    start_time: datetime = Query(..., description="开始时间"),
+    end_time: datetime = Query(..., description="结束时间"),
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    """检查资源在指定时间段的显存可用性"""
+    from services import BookingService
+    
+    service = ResourceService(db)
+    booking_service = BookingService(db)
+    
+    # 检查资源是否存在
+    resource = service.get_resource(resource_id)
+    if not resource:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="资源不存在"
+        )
+    
+    # 检查显存可用性
+    try:
+        memory_info = booking_service._check_memory_availability(resource_id, start_time, end_time)
+        is_available = memory_info["available_memory_gb"] >= estimated_memory_gb
+        
+        return ResourceAvailability(
+            resource_id=resource_id,
+            total_memory_gb=memory_info["total_memory_gb"],
+            available_memory_gb=memory_info["available_memory_gb"],
+            is_available=is_available,
+            conflicting_bookings=memory_info.get("conflicting_bookings")
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"检查显存可用性失败: {str(e)}"
+        )

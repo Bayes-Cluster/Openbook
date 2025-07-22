@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>多任务测试</title>
+    <link rel="stylesheet" href="styles.css">
+    <style>
+        body {
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .test-container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .test-calendar-cell {
+            width: 200px;
+            height: 60px;
+            border: 1px solid #ddd;
+            margin: 10px 0;
+            position: relative;
+        }
+    </style>
+</head>
+<body>
+    <div class="test-container">
+        <h2>多任务并排显示测试</h2>
+        
+        <h3>1个任务:</h3>
+        <div class="calendar-cell my-booking-container test-calendar-cell">
+            <div class="booking-tasks-container">
+                <div class="booking-block my-booking" data-booking-id="1">
+                    <span class="task-text">深度学习训练</span>
+                </div>
+            </div>
+        </div>
+        
+        <h3>2个任务:</h3>
+        <div class="calendar-cell my-booking-container test-calendar-cell">
+            <div class="booking-tasks-container">
+                <div class="booking-block my-booking" data-booking-id="1">
+                    <span class="task-text">深度学习训练</span>
+                </div>
+                <div class="booking-block booked" data-booking-id="2">
+                    <span class="task-text">已预约</span>
+                </div>
+            </div>
+        </div>
+        
+        <h3>3个任务:</h3>
+        <div class="calendar-cell booked-container test-calendar-cell">
+            <div class="booking-tasks-container">
+                <div class="booking-block my-booking" data-booking-id="1">
+                    <span class="task-text">我的任务</span>
+                </div>
+                <div class="booking-block booked" data-booking-id="2">
+                    <span class="task-text">已预约</span>
+                </div>
+                <div class="booking-block in-use" data-booking-id="3">
+                    <span class="task-text">使用中</span>
+                </div>
+            </div>
+        </div>
+        
+        <h3>4个任务:</h3>
+        <div class="calendar-cell booked-container test-calendar-cell">
+            <div class="booking-tasks-container">
+                <div class="booking-block my-booking" data-booking-id="1">
+                    <span class="task-text">任务1</span>
+                </div>
+                <div class="booking-block booked" data-booking-id="2">
+                    <span class="task-text">任务2</span>
+                </div>
+                <div class="booking-block in-use" data-booking-id="3">
+                    <span class="task-text">任务3</span>
+                </div>
+                <div class="booking-block booked" data-booking-id="4">
+                    <span class="task-text">任务4</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

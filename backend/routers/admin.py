@@ -7,7 +7,8 @@ from auth import require_admin, local_login, create_local_user, get_current_acti
 from models import User as UserModel, Resource as ResourceModel
 from schemas import (
     AdminUserUpdate, AdminUserList, AdminResourceUpdate, AdminResourceList,
-    AdminStats, LocalLogin, LocalUserCreate, SuccessResponse, User, Resource
+    AdminStats, LocalLogin, LocalUserCreate, SuccessResponse, User, Resource,
+    MemoryUsageCheck
 )
 from services import AdminService
 
@@ -153,13 +154,14 @@ async def get_resources_list(
 async def create_resource(
     name: str,
     description: Optional[str] = None,
+    total_memory_gb: Optional[float] = None,
     db: Session = Depends(get_db),
     current_user: UserModel = Depends(require_admin)
 ):
     """创建新资源"""
     service = AdminService(db)
     try:
-        resource = service.create_resource(name, description)
+        resource = service.create_resource(name, description, total_memory_gb)
         return resource
     except ValueError as e:
         raise HTTPException(
@@ -217,4 +219,27 @@ async def disable_resource(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"禁用失败: {str(e)}"
+        )
+
+@router.get("/resources/{resource_id}/memory", response_model=MemoryUsageCheck, summary="查询资源显存使用情况")
+async def get_resource_memory_usage(
+    resource_id: str,
+    db: Session = Depends(get_db),
+    current_user: UserModel = Depends(require_admin)
+):
+    """查询资源显存使用情况"""
+    from ..services import BookingService
+    booking_service = BookingService(db)
+    try:
+        memory_info = booking_service._check_memory_availability(resource_id)
+        return memory_info
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=str(e)
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"查询失败: {str(e)}"
         )

@@ -5,6 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { apiClient } from '@/lib/api';
 import BookingCalendar from '@/components/BookingCalendar';
 import { TimeUtils } from '@/lib/timeUtils';
@@ -43,6 +44,7 @@ interface Resource {
   id: string;
   name: string;
   description: string;
+  total_memory_gb: number;
   is_active: boolean;
 }
 
@@ -64,11 +66,13 @@ export default function Dashboard() {
   const [activeTab, setActiveTab] = useState<'overview' | 'calendar' | 'bookings'>('overview');
 
   const [showBookingDialog, setShowBookingDialog] = useState(false);
+  const [bookingError, setBookingError] = useState<string | null>(null);
   const [newBooking, setNewBooking] = useState({
     resource_id: '',
     task_name: '',
     start_time: '',
-    end_time: ''
+    end_time: '',
+    estimated_memory_gb: 12
   });
 
   useEffect(() => {
@@ -106,8 +110,23 @@ export default function Dashboard() {
     window.location.href = '/login';
   };
 
+  const handleResourceChange = (resourceId: string) => {
+    const selectedResource = resources.find(r => r.id === resourceId);
+    const defaultMemory = selectedResource ? Math.floor(selectedResource.total_memory_gb / 2) : 12;
+    
+    setNewBooking({
+      ...newBooking, 
+      resource_id: resourceId,
+      estimated_memory_gb: defaultMemory
+    });
+  };
+
   const handleCreateBooking = async () => {
     try {
+      // 清除之前的错误信息
+      setError(null);
+      setBookingError(null);
+      
       // Convert local times to UTC for API
       const startTime = TimeUtils.fromDateTimeLocalString(newBooking.start_time);
       const endTime = TimeUtils.fromDateTimeLocalString(newBooking.end_time);
@@ -119,11 +138,19 @@ export default function Dashboard() {
       };
       
       await apiClient.createBooking(bookingData);
+      // 只有成功时才关闭对话框
       setShowBookingDialog(false);
-      setNewBooking({ resource_id: '', task_name: '', start_time: '', end_time: '' });
+      setNewBooking({ resource_id: '', task_name: '', start_time: '', end_time: '', estimated_memory_gb: 12 });
+      setBookingError(null);
       loadData();
     } catch (err) {
-      setError(err instanceof Error ? err.message : '创建预约失败');
+      const errorMessage = err instanceof Error ? err.message : '创建预约失败';
+      // 在对话框内显示错误，不关闭对话框
+      setBookingError(errorMessage);
+      // 同时在页面顶部显示错误
+      setError(errorMessage);
+      
+      console.log('预约创建失败：', errorMessage);
     }
   };
 
@@ -200,14 +227,22 @@ export default function Dashboard() {
         <div className="max-w-7xl mx-auto space-y-6">
           {/* Error Alert */}
           {error && (
-            <Card className="border-red-200 bg-red-50">
-              <CardContent className="pt-6">
-                <div className="flex items-center space-x-2 text-red-700">
-                  <AlertCircle className="h-4 w-4" />
-                  <span className="text-sm">{error}</span>
+            <Alert variant="destructive">
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>
+                <div className="flex items-center justify-between">
+                  <span>{error}</span>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setError(null)}
+                    className="ml-2 h-6 w-6 p-0 hover:bg-red-100"
+                  >
+                    ×
+                  </Button>
                 </div>
-              </CardContent>
-            </Card>
+              </AlertDescription>
+            </Alert>
           )}
 
           {/* Tab Navigation */}
@@ -304,9 +339,16 @@ export default function Dashboard() {
                       <Clock className="h-6 w-6" />
                       <span>管理预约</span>
                     </Button>
-                    <Dialog open={showBookingDialog} onOpenChange={setShowBookingDialog}>
+                    <Dialog open={showBookingDialog} onOpenChange={(open) => {
+                      setShowBookingDialog(open);
+                      if (open) {
+                        // 打开对话框时清除错误信息
+                        setError(null);
+                        setBookingError(null);
+                      }
+                    }}>
                       <DialogTrigger asChild>
-                        <Button 
+                        <Button
                           variant="outline"
                           className="h-16 flex flex-col space-y-2"
                         >
@@ -319,18 +361,29 @@ export default function Dashboard() {
                           <DialogTitle>创建新预约</DialogTitle>
                           <DialogDescription>选择资源和时间创建新的预约</DialogDescription>
                         </DialogHeader>
+                        
+                        {/* 对话框内的错误提示 */}
+                        {bookingError && (
+                          <div className="bg-red-50 border border-red-200 rounded-md p-3">
+                            <div className="flex items-center space-x-2 text-red-700">
+                              <AlertCircle className="h-4 w-4" />
+                              <span className="text-sm">{bookingError}</span>
+                            </div>
+                          </div>
+                        )}
+                        
                         <div className="space-y-4">
                           <div>
                             <label className="text-sm font-medium mb-2 block">资源</label>
                             <select
                               className="w-full p-2 border border-gray-300 rounded-md"
                               value={newBooking.resource_id}
-                              onChange={(e) => setNewBooking({...newBooking, resource_id: e.target.value})}
+                              onChange={(e) => handleResourceChange(e.target.value)}
                             >
                               <option value="">选择资源</option>
                               {resources.map((resource) => (
                                 <option key={resource.id} value={resource.id}>
-                                  {resource.name}
+                                  {resource.name} ({resource.total_memory_gb}GB)
                                 </option>
                               ))}
                             </select>
@@ -342,6 +395,22 @@ export default function Dashboard() {
                               onChange={(e) => setNewBooking({...newBooking, task_name: e.target.value})}
                               placeholder="输入任务名称"
                             />
+                          </div>
+                          <div>
+                            <label className="text-sm font-medium mb-2 block">显存需求 (GB)</label>
+                            <Input
+                              type="number"
+                              value={newBooking.estimated_memory_gb}
+                              onChange={(e) => setNewBooking({...newBooking, estimated_memory_gb: Number(e.target.value) || 1})}
+                              placeholder="输入显存需求"
+                              min="1"
+                              max="1000"
+                            />
+                            {newBooking.resource_id && (
+                              <p className="text-xs text-gray-500 mt-1">
+                                所选资源显存: {resources.find(r => r.id === newBooking.resource_id)?.total_memory_gb}GB
+                              </p>
+                            )}
                           </div>
                           <div>
                             <label className="text-sm font-medium mb-2 block">开始时间</label>
@@ -362,7 +431,7 @@ export default function Dashboard() {
                           <Button 
                             onClick={handleCreateBooking} 
                             className="w-full"
-                            disabled={!newBooking.resource_id || !newBooking.task_name || !newBooking.start_time || !newBooking.end_time}
+                            disabled={!newBooking.resource_id || !newBooking.task_name || !newBooking.start_time || !newBooking.end_time || !newBooking.estimated_memory_gb}
                           >
                             创建预约
                           </Button>
@@ -392,7 +461,14 @@ export default function Dashboard() {
                       </CardTitle>
                       <CardDescription>管理您的GPU资源预约</CardDescription>
                     </div>
-                    <Dialog open={showBookingDialog} onOpenChange={setShowBookingDialog}>
+                    <Dialog open={showBookingDialog} onOpenChange={(open) => {
+                      setShowBookingDialog(open);
+                      if (open) {
+                        // 打开对话框时清除错误信息
+                        setError(null);
+                        setBookingError(null);
+                      }
+                    }}>
                       <DialogTrigger asChild>
                         <Button>
                           <Plus className="h-4 w-4 mr-2" />
@@ -404,18 +480,29 @@ export default function Dashboard() {
                           <DialogTitle>创建新预约</DialogTitle>
                           <DialogDescription>选择资源和时间创建新的预约</DialogDescription>
                         </DialogHeader>
+                        
+                        {/* 对话框内的错误提示 */}
+                        {bookingError && (
+                          <div className="bg-red-50 border border-red-200 rounded-md p-3">
+                            <div className="flex items-center space-x-2 text-red-700">
+                              <AlertCircle className="h-4 w-4" />
+                              <span className="text-sm">{bookingError}</span>
+                            </div>
+                          </div>
+                        )}
+                        
                         <div className="space-y-4">
                           <div>
                             <label className="text-sm font-medium mb-2 block">资源</label>
                             <select
                               className="w-full p-2 border border-gray-300 rounded-md"
                               value={newBooking.resource_id}
-                              onChange={(e) => setNewBooking({...newBooking, resource_id: e.target.value})}
+                              onChange={(e) => handleResourceChange(e.target.value)}
                             >
                               <option value="">选择资源</option>
                               {resources.map((resource) => (
                                 <option key={resource.id} value={resource.id}>
-                                  {resource.name}
+                                  {resource.name} ({resource.total_memory_gb}GB)
                                 </option>
                               ))}
                             </select>
@@ -427,6 +514,22 @@ export default function Dashboard() {
                               onChange={(e) => setNewBooking({...newBooking, task_name: e.target.value})}
                               placeholder="输入任务名称"
                             />
+                          </div>
+                          <div>
+                            <label className="text-sm font-medium mb-2 block">显存需求 (GB)</label>
+                            <Input
+                              type="number"
+                              value={newBooking.estimated_memory_gb}
+                              onChange={(e) => setNewBooking({...newBooking, estimated_memory_gb: Number(e.target.value) || 1})}
+                              placeholder="输入显存需求"
+                              min="1"
+                              max="1000"
+                            />
+                            {newBooking.resource_id && (
+                              <p className="text-xs text-gray-500 mt-1">
+                                所选资源显存: {resources.find(r => r.id === newBooking.resource_id)?.total_memory_gb}GB
+                              </p>
+                            )}
                           </div>
                           <div>
                             <label className="text-sm font-medium mb-2 block">开始时间</label>
@@ -447,7 +550,7 @@ export default function Dashboard() {
                           <Button 
                             onClick={handleCreateBooking} 
                             className="w-full"
-                            disabled={!newBooking.resource_id || !newBooking.task_name || !newBooking.start_time || !newBooking.end_time}
+                            disabled={!newBooking.resource_id || !newBooking.task_name || !newBooking.start_time || !newBooking.end_time || !newBooking.estimated_memory_gb}
                           >
                             创建预约
                           </Button>
