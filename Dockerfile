@@ -28,7 +28,7 @@ RUN npm run build
 # 阶段2: 主运行时环境（后端 + Nginx）
 # ===========================================
 FROM python:3.11-slim AS runtime
-LABEL maintainer="OpenBook Team"
+LABEL maintainer="Bayes Cluster Maintenance Group < bayes@uicstat.com >"
 LABEL description="OpenBook 全栈应用 - 前后端统一部署"
 
 # 安装系统依赖
@@ -60,6 +60,9 @@ RUN pip install --no-cache-dir --upgrade pip && \
 # 复制后端源代码
 COPY backend/ ./
 
+# 复制启动脚本
+COPY start-combined.sh ./
+
 # ===========================================
 # 前端集成
 # ===========================================
@@ -69,12 +72,11 @@ RUN mkdir -p /app/frontend
 # 复制前端构建产物
 COPY --from=frontend-builder /frontend/.next/standalone /app/frontend/
 COPY --from=frontend-builder /frontend/.next/static /app/frontend/.next/static
-COPY --from=frontend-builder /frontend/package*.json /app/frontend/
-COPY --from=frontend-builder /frontend/next.config.js /app/frontend/
+COPY --from=frontend-builder /frontend/public /app/frontend/public
 
-# 安装前端运行时依赖
-WORKDIR /app/frontend
-RUN npm ci --only=production
+# 注意：standalone 模式下，package.json 和 next.config.js 已包含在 standalone 目录中
+# 无需单独安装前端依赖
+
 WORKDIR /app
 
 # ===========================================

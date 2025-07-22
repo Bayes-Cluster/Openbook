@@ -27,7 +27,7 @@ sleep 5
 
 # 启动前端服务
 echo "🎨 启动 Next.js 前端..."
-su app -c "cd /app/frontend && npm start" &
+su app -c "cd /app/frontend && node server.js" &
 FRONTEND_PID=$!
 
 # 等待前端启动

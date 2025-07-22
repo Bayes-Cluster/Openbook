@@ -8,7 +8,7 @@ const nextConfig = {
   },
   output: 'standalone',
   experimental: {
-    outputFileTracingRoot: undefined,
+    outputFileTracingRoot: '../',
   },
 }
 
