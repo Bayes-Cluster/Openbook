@@ -50,6 +50,43 @@ class BookingService:
         if duration > timedelta(hours=24):
             raise ValueError("单次预约时长不能超过24小时")
 
+    def _check_memory_availability(self, resource_id: str, start_time: datetime, end_time: datetime, 
+                                 required_memory_gb: int, exclude_booking_id: str = None) -> dict:
+        """检查资源显存可用性"""
+        # 获取资源信息
+        resource = self.db.query(Resource).filter(Resource.id == resource_id).first()
+        if not resource:
+            raise ValueError("资源不存在")
+        
+        # 查找在指定时间段内有冲突的预约
+        query = self.db.query(Booking).filter(
+            Booking.resource_id == resource_id,
+            Booking.is_deleted == False,
+            Booking.status.in_(["upcoming", "active"]),
+            # 时间重叠检查
+            Booking.start_time < end_time,
+            Booking.end_time > start_time
+        )
+        
+        # 如果是更新预约，排除当前预约
+        if exclude_booking_id:
+            query = query.filter(Booking.id != exclude_booking_id)
+            
+        conflicting_bookings = query.all()
+        
+        # 计算已使用的显存
+        used_memory = sum(booking.estimated_memory_gb for booking in conflicting_bookings)
+        available_memory = resource.total_memory_gb - used_memory
+        
+        return {
+            "can_book": available_memory >= required_memory_gb,
+            "available_memory": available_memory,
+            "total_memory": resource.total_memory_gb,
+            "used_memory": used_memory,
+            "required_memory": required_memory_gb,
+            "conflicting_bookings": [booking.id for booking in conflicting_bookings]
+        }
+
     def update_booking_statuses(self) -> int:
         """自动更新预约状态，返回更新的数量"""
         current_time = self._get_current_time()
@@ -240,7 +277,20 @@ class BookingService:
         if not resource:
             raise ValueError("资源不存在或不可用")
 
-        # 检查时间冲突（使用精确的时间比较）
+        # 检查显存可用性
+        memory_check = self._check_memory_availability(
+            booking.resource_id, 
+            start_time, 
+            end_time, 
+            booking.estimated_memory_gb
+        )
+        if not memory_check["can_book"]:
+            raise ValueError(
+                f"显存不足！需要 {booking.estimated_memory_gb}GB，"
+                f"可用 {memory_check['available_memory']}GB"
+            )
+
+        # 检查时间冲突（传统的时间冲突检查，现在主要用于验证）
         if self._has_time_conflict(booking.resource_id, start_time, end_time):
             raise ValueError("该时间段已被预约，请选择其他时间")
 
@@ -250,6 +300,7 @@ class BookingService:
             user_id=user_id,
             resource_id=booking.resource_id,
             task_name=booking.task_name,
+            estimated_memory_gb=booking.estimated_memory_gb,
             start_time=start_time,
             end_time=end_time,
             original_end_time=end_time,
@@ -780,6 +831,15 @@ class UserService:
         
         return summary
 
+    def get_resource_availability(self, resource_id: str, start_time: datetime, end_time: datetime) -> dict:
+        """获取资源在指定时间段的可用性"""
+        return self._check_memory_availability(resource_id, start_time, end_time, 0)
+
+    def check_memory_for_booking(self, resource_id: str, start_time: datetime, 
+                                end_time: datetime, required_memory_gb: int) -> dict:
+        """检查创建预约时的显存可用性"""
+        return self._check_memory_availability(resource_id, start_time, end_time, required_memory_gb)
+
 
 class AdminService:
     def __init__(self, db: Session):
@@ -885,7 +945,8 @@ class AdminService:
         self.db.refresh(resource)
         return resource
 
-    def create_resource(self, name: str, description: Optional[str] = None) -> Resource:
+    def create_resource(self, name: str, description: Optional[str] = None, 
+                       total_memory_gb: int = 24) -> Resource:
         """创建新资源"""
         # 检查名称是否已存在
         existing = self.db.query(Resource).filter(Resource.name == name).first()
@@ -895,7 +956,8 @@ class AdminService:
         resource = Resource(
             id=f"gpu_{uuid.uuid4().hex[:8]}",
             name=name,
-            description=description
+            description=description,
+            total_memory_gb=total_memory_gb
         )
         
         self.db.add(resource)

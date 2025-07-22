@@ -29,6 +29,7 @@ class User(UserBase):
 class ResourceBase(BaseModel):
     name: str
     description: Optional[str] = None
+    total_memory_gb: int = 24
 
 class ResourceCreate(ResourceBase):
     id: str
@@ -36,6 +37,7 @@ class ResourceCreate(ResourceBase):
 class ResourceUpdate(BaseModel):
     name: Optional[str] = None
     description: Optional[str] = None
+    total_memory_gb: Optional[int] = None
     is_active: Optional[bool] = None
 
 class Resource(ResourceBase):
@@ -51,6 +53,7 @@ class Resource(ResourceBase):
 class BookingBase(BaseModel):
     resource_id: str
     task_name: str
+    estimated_memory_gb: int = 8
     start_time: datetime
     end_time: datetime
 
@@ -59,6 +62,7 @@ class BookingCreate(BookingBase):
 
 class BookingUpdate(BaseModel):
     task_name: Optional[str] = None
+    estimated_memory_gb: Optional[int] = None
     end_time: Optional[datetime] = None
 
 class BookingExtend(BaseModel):
@@ -104,12 +108,26 @@ class BookingResponse(BaseModel):
     resource_id: str
     resource_name: str
     task_name: str
+    estimated_memory_gb: int
     start_time: datetime
     end_time: datetime
     original_end_time: datetime
     status: str
     created_at: datetime
     updated_at: datetime
+
+class ResourceAvailability(BaseModel):
+    resource_id: str
+    total_memory_gb: int
+    available_memory_gb: int
+    is_available: bool
+    conflicting_bookings: Optional[List[str]] = None
+
+class MemoryUsageCheck(BaseModel):
+    can_book: bool
+    available_memory: int
+    required_memory: int
+    conflicting_bookings: List[str] = []
 
 class CalendarSlot(BaseModel):
     start_time: datetime
@@ -183,6 +201,7 @@ class AdminUserList(BaseModel):
 class AdminResourceUpdate(BaseModel):
     name: Optional[str] = None
     description: Optional[str] = None
+    total_memory_gb: Optional[int] = None
     is_active: Optional[bool] = None
 
 class AdminResourceList(BaseModel):

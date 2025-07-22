@@ -27,6 +27,7 @@ class Resource(Base):
     id = Column(String, primary_key=True, index=True)
     name = Column(String, nullable=False)
     description = Column(Text)
+    total_memory_gb = Column(Integer, default=24)  # 总显存GB
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
@@ -41,6 +42,7 @@ class Booking(Base):
     user_id = Column(String, ForeignKey("users.id"), nullable=False)
     resource_id = Column(String, ForeignKey("resources.id"), nullable=False)
     task_name = Column(String, nullable=False)
+    estimated_memory_gb = Column(Integer, default=8)  # 预计使用显存GB
     start_time = Column(DateTime, nullable=False)
     end_time = Column(DateTime, nullable=False)
     original_end_time = Column(DateTime, nullable=False)  # 原始结束时间，用于延长记录
