@@ -10,9 +10,10 @@ WORKDIR /frontend
 # 复制前端依赖文件
 COPY frontend/package*.json ./
 COPY frontend/next.config.js ./
+COPY frontend/tsconfig.json ./
 
 # 安装前端依赖
-RUN npm ci --only=production
+RUN npm ci
 
 # 复制前端源代码
 COPY frontend/ ./
@@ -20,6 +21,7 @@ COPY frontend/ ./
 # 设置构建环境变量
 ENV NEXT_PUBLIC_API_URL=http://localhost/api
 ENV NODE_ENV=production
+ENV NEXT_TELEMETRY_DISABLED=1
 
 # 构建前端应用
 RUN npm run build
@@ -59,6 +61,9 @@ RUN pip install --no-cache-dir --upgrade pip && \
 
 # 复制后端源代码
 COPY backend/ ./
+
+# 复制环境配置文件
+COPY backend/.env ./.env
 
 # 复制启动脚本
 COPY start-combined.sh ./

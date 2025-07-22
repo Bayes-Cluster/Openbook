@@ -8,7 +8,7 @@ const nextConfig = {
   },
   output: 'standalone',
   experimental: {
-    outputFileTracingRoot: '../',
+    outputFileTracingRoot: process.env.NODE_ENV === 'production' ? '/frontend' : '../',
   },
 }
 

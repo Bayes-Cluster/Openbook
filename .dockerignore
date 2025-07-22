@@ -8,10 +8,11 @@
 README.md
 contribute/
 
-# 环境配置
-.env
+# 环境配置 - 仅排除根目录的.env，保留backend/.env
+/.env
 .env.*
 *.env
+!backend/.env
 
 # Python 相关
 __pycache__/
