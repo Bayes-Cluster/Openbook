@@ -133,6 +133,82 @@ def get_max_extend_hours(user: User) -> int:
     }
     return extend_limits.get(user.group, 4)
 
+def require_admin(current_user: User = Depends(get_current_active_user)) -> User:
+    """要求管理员权限"""
+    if current_user.group != "admin":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="需要管理员权限"
+        )
+    return current_user
+
+def authenticate_local_user(db: Session, email: str, password: str) -> Optional[User]:
+    """认证本地用户（用于管理员登录）"""
+    user = get_user_by_email(db, email)
+    if not user or not user.is_local_account or not user.password_hash:
+        return None
+    
+    if verify_password(password, user.password_hash):
+        return user
+    return None
+
+def create_local_user(db: Session, name: str, email: str, password: str, group: str = "admin") -> User:
+    """创建本地用户（用于管理员账号）"""
+    # 检查用户是否已存在
+    existing_user = get_user_by_email(db, email)
+    if existing_user:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="用户邮箱已存在"
+        )
+    
+    # 创建新用户
+    user = User(
+        id=f"local_{email.split('@')[0]}_{datetime.utcnow().timestamp()}",
+        name=name,
+        email=email,
+        password_hash=get_password_hash(password),
+        group=group,
+        is_local_account=True
+    )
+    
+    db.add(user)
+    db.commit()
+    db.refresh(user)
+    return user
+
+def local_login(db: Session, email: str, password: str) -> dict:
+    """本地用户登录"""
+    user = authenticate_local_user(db, email, password)
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="邮箱或密码错误"
+        )
+    
+    if not user.is_active:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="账号已被禁用"
+        )
+    
+    access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    access_token = create_access_token(
+        data={"sub": user.email},
+        expires_delta=access_token_expires
+    )
+    
+    return {
+        "access_token": access_token,
+        "token_type": "bearer",
+        "user": {
+            "id": user.id,
+            "name": user.name,
+            "email": user.email,
+            "group": user.group
+        }
+    }
+
 # OAuth模拟端点
 def simulate_oauth_login(email: str, db: Session) -> dict:
     """模拟OAuth登录流程"""

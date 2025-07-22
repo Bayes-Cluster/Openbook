@@ -166,3 +166,46 @@ class ErrorResponse(BaseModel):
 class SuccessResponse(BaseModel):
     message: str
     data: Optional[dict] = None
+
+# 管理员模式
+class AdminUserUpdate(BaseModel):
+    name: Optional[str] = None
+    email: Optional[EmailStr] = None
+    group: Optional[str] = None
+    is_active: Optional[bool] = None
+
+class AdminUserList(BaseModel):
+    users: List[User]
+    total: int
+    page: int
+    page_size: int
+
+class AdminResourceUpdate(BaseModel):
+    name: Optional[str] = None
+    description: Optional[str] = None
+    is_active: Optional[bool] = None
+
+class AdminResourceList(BaseModel):
+    resources: List[Resource]
+    total: int
+    page: int
+    page_size: int
+
+class AdminStats(BaseModel):
+    total_users: int
+    active_users: int
+    total_resources: int
+    active_resources: int
+    total_bookings: int
+    active_bookings: int
+
+# 本地登录模式（管理员）
+class LocalLogin(BaseModel):
+    email: EmailStr
+    password: str
+
+class LocalUserCreate(BaseModel):
+    name: str
+    email: EmailStr
+    password: str
+    group: str = "admin"

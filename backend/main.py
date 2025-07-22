@@ -7,7 +7,7 @@ import asyncio
 from contextlib import asynccontextmanager
 
 from database import create_tables, init_db, SessionLocal
-from routers import auth, bookings, resources, users
+from routers import auth, bookings, resources, users, admin
 from services import BookingService
 
 # 后台任务标志
@@ -82,6 +82,7 @@ app.include_router(auth.router, prefix="/api")
 app.include_router(bookings.router, prefix="/api")
 app.include_router(resources.router, prefix="/api")
 app.include_router(users.router, prefix="/api")
+app.include_router(admin.router, prefix="/api")
 
 @app.get("/", summary="API根路径")
 async def root():

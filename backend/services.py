@@ -779,3 +779,169 @@ class UserService:
         }
         
         return summary
+
+
+class AdminService:
+    def __init__(self, db: Session):
+        self.db = db
+
+    def get_users_list(self, page: int = 1, page_size: int = 20, search: Optional[str] = None) -> dict:
+        """获取用户列表"""
+        query = self.db.query(User)
+        
+        # 搜索过滤
+        if search:
+            query = query.filter(
+                or_(
+                    User.name.ilike(f"%{search}%"),
+                    User.email.ilike(f"%{search}%")
+                )
+            )
+        
+        # 分页
+        total = query.count()
+        users = query.offset((page - 1) * page_size).limit(page_size).all()
+        
+        return {
+            "users": users,
+            "total": total,
+            "page": page,
+            "page_size": page_size
+        }
+
+    def update_user(self, user_id: str, update_data: dict) -> User:
+        """更新用户信息"""
+        user = self.db.query(User).filter(User.id == user_id).first()
+        if not user:
+            raise ValueError("用户不存在")
+        
+        # 更新字段
+        for field, value in update_data.items():
+            if hasattr(user, field) and value is not None:
+                setattr(user, field, value)
+        
+        user.updated_at = datetime.utcnow()
+        self.db.commit()
+        self.db.refresh(user)
+        return user
+
+    def delete_user(self, user_id: str) -> bool:
+        """删除用户（软删除）"""
+        user = self.db.query(User).filter(User.id == user_id).first()
+        if not user:
+            raise ValueError("用户不存在")
+        
+        # 检查是否有活跃的预约
+        active_bookings = self.db.query(Booking).filter(
+            Booking.user_id == user_id,
+            Booking.status.in_(["upcoming", "active"]),
+            Booking.is_deleted == False
+        ).count()
+        
+        if active_bookings > 0:
+            raise ValueError("用户有活跃的预约，无法删除")
+        
+        user.is_active = False
+        self.db.commit()
+        return True
+
+    def get_resources_list(self, page: int = 1, page_size: int = 20, search: Optional[str] = None) -> dict:
+        """获取资源列表"""
+        query = self.db.query(Resource)
+        
+        # 搜索过滤
+        if search:
+            query = query.filter(
+                or_(
+                    Resource.name.ilike(f"%{search}%"),
+                    Resource.description.ilike(f"%{search}%")
+                )
+            )
+        
+        # 分页
+        total = query.count()
+        resources = query.offset((page - 1) * page_size).limit(page_size).all()
+        
+        return {
+            "resources": resources,
+            "total": total,
+            "page": page,
+            "page_size": page_size
+        }
+
+    def update_resource(self, resource_id: str, update_data: dict) -> Resource:
+        """更新资源信息"""
+        resource = self.db.query(Resource).filter(Resource.id == resource_id).first()
+        if not resource:
+            raise ValueError("资源不存在")
+        
+        # 更新字段
+        for field, value in update_data.items():
+            if hasattr(resource, field) and value is not None:
+                setattr(resource, field, value)
+        
+        resource.updated_at = datetime.utcnow()
+        self.db.commit()
+        self.db.refresh(resource)
+        return resource
+
+    def create_resource(self, name: str, description: Optional[str] = None) -> Resource:
+        """创建新资源"""
+        # 检查名称是否已存在
+        existing = self.db.query(Resource).filter(Resource.name == name).first()
+        if existing:
+            raise ValueError("资源名称已存在")
+        
+        resource = Resource(
+            id=f"gpu_{uuid.uuid4().hex[:8]}",
+            name=name,
+            description=description
+        )
+        
+        self.db.add(resource)
+        self.db.commit()
+        self.db.refresh(resource)
+        return resource
+
+    def delete_resource(self, resource_id: str) -> bool:
+        """删除资源（软删除）"""
+        resource = self.db.query(Resource).filter(Resource.id == resource_id).first()
+        if not resource:
+            raise ValueError("资源不存在")
+        
+        # 检查是否有活跃的预约
+        active_bookings = self.db.query(Booking).filter(
+            Booking.resource_id == resource_id,
+            Booking.status.in_(["upcoming", "active"]),
+            Booking.is_deleted == False
+        ).count()
+        
+        if active_bookings > 0:
+            raise ValueError("资源有活跃的预约，无法删除")
+        
+        resource.is_active = False
+        self.db.commit()
+        return True
+
+    def get_admin_stats(self) -> dict:
+        """获取管理员统计信息"""
+        total_users = self.db.query(User).count()
+        active_users = self.db.query(User).filter(User.is_active == True).count()
+        
+        total_resources = self.db.query(Resource).count()
+        active_resources = self.db.query(Resource).filter(Resource.is_active == True).count()
+        
+        total_bookings = self.db.query(Booking).filter(Booking.is_deleted == False).count()
+        active_bookings = self.db.query(Booking).filter(
+            Booking.status.in_(["upcoming", "active"]),
+            Booking.is_deleted == False
+        ).count()
+        
+        return {
+            "total_users": total_users,
+            "active_users": active_users,
+            "total_resources": total_resources,
+            "active_resources": active_resources,
+            "total_bookings": total_bookings,
+            "active_bookings": active_bookings
+        }

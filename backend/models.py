@@ -11,8 +11,10 @@ class User(Base):
     id = Column(String, primary_key=True, index=True)
     name = Column(String, nullable=False)
     email = Column(String, unique=True, index=True, nullable=False)
+    password_hash = Column(String, nullable=True)  # 本地账号密码哈希，OAuth用户为None
     group = Column(String, default="standard")  # standard, premium, admin
     is_active = Column(Boolean, default=True)
+    is_local_account = Column(Boolean, default=False)  # 是否为本地账号
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
