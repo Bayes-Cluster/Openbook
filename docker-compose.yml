@@ -14,7 +14,7 @@ services:
       - ENVIRONMENT=production
       - HOST=0.0.0.0
       - PORT=8000
-      - NEXT_PUBLIC_API_URL=http://localhost/api
+      - NEXT_PUBLIC_API_URL=/api
       - DEBUG=False
     volumes:
       - ./data:/app/data

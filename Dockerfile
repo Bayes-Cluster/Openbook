@@ -22,7 +22,7 @@ RUN npm ci
 COPY frontend/ ./
 
 # 设置构建环境变量
-ENV NEXT_PUBLIC_API_URL=http://localhost/api
+ENV NEXT_PUBLIC_API_URL=/api
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV DOCKER_BUILD=true
