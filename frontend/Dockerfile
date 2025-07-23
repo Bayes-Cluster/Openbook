@@ -10,7 +10,9 @@ RUN npm ci
 
 # 复制源代码并构建
 COPY . .
-ENV NEXT_PUBLIC_API_URL=http://localhost:8000/api
+ENV NEXT_PUBLIC_API_URL=/api
+ENV NODE_ENV=production
+ENV NEXT_TELEMETRY_DISABLED=1
 RUN npm run build
 
 # 阶段2: 运行时

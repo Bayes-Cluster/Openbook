@@ -1,0 +1,47 @@
+# 依赖
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# 构建输出
+.next/
+out/
+dist/
+build/
+
+# 环境变量
+.env
+.env.*
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# 操作系统
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+Thumbs.db
+
+# 日志
+*.log
+
+# 运行时
+.pnp
+.pnp.js
+
+# 测试
+coverage/
+.nyc_output/
+
+# 后端文件（前端不需要）
+../backend/
+*.py
+*.pyc
+requirements.txt
+main.py
