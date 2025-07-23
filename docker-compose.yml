@@ -17,6 +17,25 @@ services:
       - HOST=0.0.0.0
       - PORT=8000
       - DEBUG=False
+      
+      # OAuth 2.0 配置
+      - OAUTH_CLIENT_ID=${OAUTH_CLIENT_ID:-}
+      - OAUTH_CLIENT_SECRET=${OAUTH_CLIENT_SECRET:-}
+      - OAUTH_AUTHORIZATION_URL=${OAUTH_AUTHORIZATION_URL:-}
+      - OAUTH_TOKEN_URL=${OAUTH_TOKEN_URL:-}
+      - OAUTH_USER_INFO_URL=${OAUTH_USER_INFO_URL:-}
+      - OAUTH_REDIRECT_URI=${OAUTH_REDIRECT_URI:-http://localhost/api/auth/oauth/callback}
+      - OAUTH_SCOPE=${OAUTH_SCOPE:-openid email profile}
+      - OAUTH_PROVIDER_NAME=${OAUTH_PROVIDER_NAME:-OAuth Provider}
+      - OAUTH_EMAIL_FIELD=${OAUTH_EMAIL_FIELD:-email}
+      - OAUTH_NAME_FIELD=${OAUTH_NAME_FIELD:-name}
+      - OAUTH_AVATAR_FIELD=${OAUTH_AVATAR_FIELD:-picture}
+      - OAUTH_ID_FIELD=${OAUTH_ID_FIELD:-sub}
+      - OAUTH_STATE_SECRET=${OAUTH_STATE_SECRET:-your-state-secret-change-in-production}
+      - OAUTH_USE_PKCE=${OAUTH_USE_PKCE:-true}
+      
+      # 前端 URL (用于 OAuth 回调重定向)
+      - FRONTEND_URL=${FRONTEND_URL:-http://localhost}
     volumes:
       - backend_data:/app/data
     restart: unless-stopped
